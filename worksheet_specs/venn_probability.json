@@ -1,0 +1,11 @@
+{
+  "title": "Venn Diagrams: Calculating Probabilities",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["probability.venn.probabilities"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "title": "New Families Review",
+  "shuffle": true,
+  "sections": [
+    {
+      "generator_ids": ["number.standard_form.from_decimal"],
+      "count": 2,
+      "difficulties": [2, 4]
+    },
+    {
+      "generator_ids": ["number.standard_form.to_decimal"],
+      "count": 2,
+      "difficulties": [2, 4]
+    },
+    {
+      "generator_ids": ["data.averages.median_range"],
+      "count": 2,
+      "difficulties": [2, 4]
+    },
+    {
+      "generator_ids": ["number.fractions.multiplication"],
+      "count": 2,
+      "difficulties": [2, 4]
+    },
+    {
+      "generator_ids": ["number.fractions.division"],
+      "count": 2,
+      "difficulties": [3, 4]
+    },
+    {
+      "generator_ids": ["algebra.expanding.double_brackets"],
+      "count": 2,
+      "difficulties": [3, 4]
+    },
+    {
+      "generator_ids": ["algebra.rearranging.changing_subject"],
+      "count": 2,
+      "difficulties": [3, 4]
+    }
+  ]
+}

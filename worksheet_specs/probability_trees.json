@@ -1,0 +1,11 @@
+{
+  "title": "Probability Tree Diagrams",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["probability.trees.two_stage"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

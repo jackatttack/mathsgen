@@ -1,0 +1,26 @@
+{
+  "title": "Core Skills Practice",
+  "shuffle": true,
+  "sections": [
+    {
+      "generator_ids": ["algebra.linear.two_sided"],
+      "count": 3,
+      "difficulties": [2, 3, 4]
+    },
+    {
+      "generator_ids": ["algebra.factorising.common_factor"],
+      "count": 3,
+      "difficulties": [2, 3, 4]
+    },
+    {
+      "generator_ids": ["ratio.sharing"],
+      "count": 3,
+      "difficulties": [2, 3, 4]
+    },
+    {
+      "generator_ids": ["number.fractions.addition"],
+      "count": 3,
+      "difficulties": [2, 3, 4]
+    }
+  ]
+}

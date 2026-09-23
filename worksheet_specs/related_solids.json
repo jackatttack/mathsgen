@@ -1,0 +1,11 @@
+{
+  "title": "Problem Solving: Related Solids",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["problem_solving.related_solids.volume"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

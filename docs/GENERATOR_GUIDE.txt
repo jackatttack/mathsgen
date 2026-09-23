@@ -1,0 +1,199 @@
+ADDING A GENERATOR
+
+READ FIRST
+mathsgen/core.py
+mathsgen/catalogue.py
+mathsgen/family.py: GeneratorFamily, the shared generate/validate flow.
+mathsgen/rich_blocks.py: rich prompt builders.
+Preferred templates for new work:
+- number_operations.py: expression templates checked against displayed text.
+- fraction_skills.py: story prompts and an independent digit-level check.
+- functions.py: several families with structural levels in one module.
+Older relevant generators:
+- percentage_amount.py: backwards construction with exact fractions.
+- missing_mean.py: constrained data generation and symbolic checking.
+- selection_probability.py: event model and independent enumeration.
+- simplify_ratio.py: units, exact decimals and normalization.
+
+Avoid using the older worked-solution-heavy modules as a template unless
+their particular mathematics is relevant.
+
+REQUIRED SHAPE
+A module exports a class with:
+- info: GeneratorInfo
+- generate(seed, difficulty=1, settings=None) -> Question
+- validate(question) -> True or raises ValueError
+- validate_independently(question) -> True or raises ValueError
+
+The class has no required constructor arguments.
+Import it and register one instance in build_registry().
+
+GENERATION CONTRACT
+Use make_context(info, seed, difficulty, settings).
+Use context.rng only; never global random state.
+Current generators reject nonempty settings.
+Use context.identity as the question ID.
+Store generator version, seed, difficulty and settings in the Question.
+Store enough exact parameters to reconstruct and check the displayed problem.
+Fraction values are serialized with rational_text(), never floats.
+Return worked_solution=() for new generators.
+Call self.validate(question) before returning.
+
+CONTENT
+Content.text is always a complete human-readable fallback for CLI use.
+New generators author prompts with schema-5 rich blocks (rich_blocks.py):
+paragraphs mixing text and inline maths runs, and display equations.
+Rich blocks require empty math_tex and display_text=None.
+Build blocks from exact parameters; never parse prose into maths.
+Every maths run carries its own plain-text fallback.
+Adjacent runs without whitespace stay together, keeping punctuation
+attached to maths.
+Plain-language prompts with no notation can simply use Content(text).
+Legacy text/math_tex/display_text prompts still render; convert them only
+as presentation work, bumping the generator version.
+Answer data should be structured and exact.
+answer_display provides a readable text answer and optional TeX.
+Use sensible marks and LayoutHint working space.
+Marks are currently indicative, not exam-board calibrated.
+
+CURRENT RENDERING BOUNDS
+MathText supports a subset of TeX; do not assume full LaTeX.
+Mathematics uses vector outlines.
+Question schema v4 supports question_visuals and answer_visuals sequences.
+Legacy diagram remains supported; do not combine it with question_visuals.
+Visuals support scenes, tables, coordinate plots, histogram bars and box plots.
+PDF prompts honour display_text even without math_tex, allowing a complete
+CLI fallback without repeating table data in the PDF.
+Answer visuals appear only in answer/worked PDFs. SVG export is blocked by
+Pythonista's unavailable native FreeType dependency.
+PDF renderer rejects overwide mathematics and questions too tall for a page.
+Validate a PDF only when new notation creates a concrete rendering risk.
+Routine expansion should concentrate on generation, validation and samples.
+
+VALIDATION CONTRACT
+Check the answer against the emitted mathematical problem.
+Check nondegeneracy, domains, units, simplification and difficulty bounds.
+Check that displayed questions and displayed answers match their data.
+Use require(), which stays active under optimized Python.
+Do not merely compare an answer with a second copy of its construction code.
+Use SymPy, enumeration or a mathematically distinct calculation as appropriate.
+Add targeted corruption/rejection checks where useful.
+
+FOCUSED CHECKS (DEFAULT)
+Write one smoke per module: 40 seeds per level for validation,
+corruption rejection and PDF widths; SymPy or other independent checks on
+the first 8 seeds (they are slow on device, and the user prefers short
+runs). Print distinct prompts per level and export a small specimen PDF
+for review by eye. smoke_algebra_basics.py is the current template; its
+bump_first_int corruption helper works for any parameter shape.
+
+BULK CHECK (ONLY FOR A CONCRETE RISK)
+    RUN icloud:projects/mathsgen/mathsgen_cli.py
+    ARGS: validate NEW.ID --runs 1000 --independent --json
+Roughly 14 seconds per 1000 SymPy-checked questions on device.
+
+Review examples at every difficulty.
+The bulk runner checks reproducibility as well as mathematical validation.
+It retains the first ten failure details and counts all failures.
+
+WORKSHEETS
+A spec contains title, shuffle and sections.
+Each section selects either topic or generator_ids, plus count and
+difficulties (a list of levels).
+Topic sections automatically include newly registered generators.
+Explicit generator IDs preserve deliberate curriculum selection.
+Scheduling balances generator/level pairs over complete cycles; partial
+cycles are shuffled and need not give perfectly equal marginal counts.
+Duplicate displayed prompts are retried up to 100 attempts per slot.
+Small finite families can exhaust their variety: do not remove duplicate
+protection to conceal that.
+
+Current quick CLI difficulty parsing only supports levels 1–4.
+There are not yet weighted difficulty distributions or settings per section.
+
+AFTER A NEW GENERATOR PASSES
+Record its ID, version, evidence and known limitations.
+Add it to an appropriate explicit worksheet spec/profile when useful.
+Update the handoff and checkpoint after a meaningful batch.
+Do not add a new framework abstraction unless a concrete need warrants it.
+
+NATIVE LAUNCHER
+launch_mathsgen.py opens mathsgen/worksheet_ui.py.
+The UI discovers registered generator metadata on launch.
+No separate list of UI question types needs updating.
+Each selected type receives the same requested question count.
+Set order groups generator sections; random order shuffles the questions.
+
+MULTIPLE CHOICE
+Read the live core.py and index_meaning.py before implementing another MCQ.
+Question schema v3 has an optional choices tuple, empty for ordinary questions.
+Each Choice has an id and Content; correctness belongs in the teacher answer,
+not in a public option flag.
+Use stable option IDs within the emitted question and store the correct
+choice ID in the structured answer. Keep answer_display aligned with the
+displayed option letter and mathematical content.
+CLI and PDF render the supplied option order.
+Shuffle options with context.rng for reproducible placement.
+Distractors should represent plausible misconceptions.
+Prove exactly one option is equivalent over the stated domain; checking a
+single numerical substitution is insufficient.
+Check for mathematically duplicate distractors and display mismatches.
+State domain restrictions explicitly when roots or negative powers need them.
+IndexMeaning supplies a reference implementation, not a universal MCQ engine.
+
+VARIED GEOMETRY DIAGRAMS
+mathsgen/figures.py provides place() for shapes defined by actual named points
+and orient_scene() for authored scenes, including arcs and right-angle markers.
+Choose a seeded orientation only after constructing the mathematics:
+    p["orientation"] = figures.choose_orientation(
+        rng, lambda orientation: diagram_for(
+            dict(p, orientation=orientation), difficulty))
+The candidate must render at both 360 and 250 pt. Store the orientation as
+[rotation, mirror], require figures.valid_orientation() in validate(), and
+rebuild the diagram exactly from the parameters. Bump the generator version;
+update version-pinned question support and tools when they still apply.
+Add a focused smoke covering orientation variation, both render widths,
+independent answers and tampered parameters. A rendered PDF still needs review
+on the device. If a CLI fallback describes left/right, upper/lower or sloping
+directions, rewrite it to remain true after rotation before using orient_scene().
+Triangle angles, Pythagoras, basic and compound areas, right-angled
+trigonometry, sine rule, cosine rule, polygons and parallel-line angles are
+examples. Prefer figures.place() on true coordinates for new work; cosine
+rule v4 is the reference, including seeded vertex lettering.
+
+CIRCLE DIAGRAMS
+Use mathsgen/circle_figures.py. Put points at their true positions with
+on_circle(), mark angles with angle_mark(), letter vertices with
+vertex_label(), then pass the scene through figures.orient_scene().
+Choose the orientation with circle_figures.choose_orientation(), which also
+requires every label to clear every line at both widths. Store any
+presentation choice (letter set, position of a free point on its arc) in the
+parameters and bound it in validate(). If long algebraic labels cannot fit
+inside an angle, mark u and v and state the expressions in the prompt's
+display text. Check independently by measuring a true drawing with atan2
+rather than restating the theorem. Circle centre angle v2 and same segment
+v3 are the references. The PDF draws a scene beside working space at 238 pt
+(pdf.scene_working_row), so circle_figures checks 360, 250 and 238 pt. Put
+an interior point's letter with label_in_angle() in its roomiest free angle.
+When a form never fits, run dev/probes/probe_circle_clash.py to see which
+label blocks it before changing ranges.
+Do not combine figures.side_label with orient_scene: side_label sizes its
+offset for the text width along the edge as authored, and rotating the
+finished scene breaks that. Place the figure first (figures.place, or apply
+the rotation directly as sectors v3 does), then compute side labels in the
+final frame. Radial and bisector labels rotate safely.
+
+WORDED FORMS IN EXISTING GENERATORS
+To add contexts to an existing generator, follow linear_contexts.py or
+simultaneous_contexts.py with mathsgen/worded.py; do not register a new ID.
+Draw rng.random() < CONTEXT_SHARE[level] once at the start of generate();
+dispatch validate/validate_independently on worded.is_worded(question).
+Bump the generator version. Guard legacy validators so a malformed answer
+raises ValueError. Add a smoke using tests/worded_smoke.run with every
+expected form listed per level, and make older smokes skip worded forms.
+
+FINITE VARIATION
+Linear nth-term level 1 currently has only eight distinct prompts.
+Large single-level requests can exhaust it. Preserve duplicate rejection.
+Option reordering should not disguise repeated mathematical questions.
+Bulk success does not measure the number of distinct useful questions.

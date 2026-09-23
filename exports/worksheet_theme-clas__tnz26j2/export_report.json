@@ -1,0 +1,31 @@
+{
+  "worksheet_id": "theme-classic-source",
+  "seed": 7,
+  "question_count": 5,
+  "directory": "/private/var/mobile/Containers/Shared/AppGroup/2BDBE521-A867-4CC9-932E-BB723BB7DBAC/Pythonista3/Documents/mathsgen_release/exports/worksheet_theme-clas__tnz26j2",
+  "teacher_manifest": "/private/var/mobile/Containers/Shared/AppGroup/2BDBE521-A867-4CC9-932E-BB723BB7DBAC/Pythonista3/Documents/mathsgen_release/exports/worksheet_theme-clas__tnz26j2/teacher_manifest.json",
+  "backend": "reportlab",
+  "pdfs": [
+    {
+      "mode": "questions",
+      "path": "/private/var/mobile/Containers/Shared/AppGroup/2BDBE521-A867-4CC9-932E-BB723BB7DBAC/Pythonista3/Documents/mathsgen_release/exports/worksheet_theme-clas__tnz26j2/questions.pdf",
+      "pages": 3,
+      "page_size_points": [
+        595.2755905511812,
+        841.8897637795277
+      ],
+      "bytes": 32994
+    },
+    {
+      "mode": "answers",
+      "path": "/private/var/mobile/Containers/Shared/AppGroup/2BDBE521-A867-4CC9-932E-BB723BB7DBAC/Pythonista3/Documents/mathsgen_release/exports/worksheet_theme-clas__tnz26j2/answers.pdf",
+      "pages": 1,
+      "page_size_points": [
+        595.2755905511812,
+        841.8897637795277
+      ],
+      "bytes": 12763
+    }
+  ],
+  "visual_review": "pending"
+}

@@ -1,0 +1,11 @@
+{
+  "title": "Surface Area of Prisms and Cylinders",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["geometry.surface_area.prisms"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

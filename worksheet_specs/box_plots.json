@@ -1,0 +1,11 @@
+{
+  "title": "Box Plots",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["data.spread.box_plots"],
+      "count": 3,
+      "difficulties": [1, 2, 3]
+    }
+  ]
+}

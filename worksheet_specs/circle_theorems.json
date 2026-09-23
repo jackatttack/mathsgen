@@ -1,0 +1,21 @@
+{
+  "title": "Circle Theorems",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["geometry.circle_theorems.cyclic_quadrilateral"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    },
+    {
+      "generator_ids": ["geometry.circle_theorems.centre_angle"],
+      "count": 2,
+      "difficulties": [1, 3]
+    },
+    {
+      "generator_ids": ["geometry.circle_theorems.same_segment"],
+      "count": 2,
+      "difficulties": [1, 3]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "title": "Tangents level 4",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["geometry.circle_theorems.tangents"],
+      "count": 1,
+      "difficulties": [4]
+    }
+  ]
+}

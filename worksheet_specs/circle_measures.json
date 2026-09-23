@@ -1,0 +1,11 @@
+{
+  "title": "Circles and Circular Regions",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["geometry.circles.measures"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

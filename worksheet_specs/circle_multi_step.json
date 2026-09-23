@@ -1,0 +1,16 @@
+{
+  "title": "Circle Theorems: Multi-Step Problems",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["geometry.circle_theorems.multi_step"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    },
+    {
+      "generator_ids": ["geometry.circle_theorems.alternate_segment"],
+      "count": 2,
+      "difficulties": [1, 3]
+    }
+  ]
+}

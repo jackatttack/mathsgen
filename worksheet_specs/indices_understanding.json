@@ -1,0 +1,11 @@
+{
+  "title": "Understanding Indices",
+  "shuffle": true,
+  "sections": [
+    {
+      "generator_ids": ["number.indices.meaning_mcq"],
+      "count": 8,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

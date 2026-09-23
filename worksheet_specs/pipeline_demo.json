@@ -1,0 +1,16 @@
+{
+  "title": "Algebra and Ratio Practice",
+  "shuffle": true,
+  "sections": [
+    {
+      "generator_ids": ["algebra.linear.two_sided"],
+      "count": 6,
+      "difficulties": [2, 3, 4]
+    },
+    {
+      "generator_ids": ["ratio.sharing"],
+      "count": 6,
+      "difficulties": [2, 3, 4]
+    }
+  ]
+}

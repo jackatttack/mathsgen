@@ -1,0 +1,21 @@
+{
+  "title": "Surds and Compound Measures",
+  "shuffle": true,
+  "sections": [
+    {
+      "generator_ids": ["number.surds.manipulation"],
+      "count": 3,
+      "difficulties": [1, 2, 3]
+    },
+    {
+      "generator_ids": ["number.surds.manipulation"],
+      "count": 2,
+      "difficulties": [4]
+    },
+    {
+      "generator_ids": ["ratio.compound_measures.rates"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

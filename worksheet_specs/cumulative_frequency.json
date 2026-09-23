@@ -1,0 +1,11 @@
+{
+  "title": "Cumulative Frequency Construction",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["data.cumulative_frequency.construction"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

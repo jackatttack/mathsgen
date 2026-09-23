@@ -1,0 +1,36 @@
+{
+  "title": "Mixed GCSE Practice",
+  "shuffle": true,
+  "sections": [
+    {
+      "generator_ids": ["number.indices.product"],
+      "count": 2,
+      "difficulties": [2, 3]
+    },
+    {
+      "generator_ids": ["algebra.simultaneous.linear"],
+      "count": 2,
+      "difficulties": [2, 3]
+    },
+    {
+      "generator_ids": ["number.percentages.reverse"],
+      "count": 2,
+      "difficulties": [2, 3]
+    },
+    {
+      "generator_ids": ["ratio.combining.three_part"],
+      "count": 2,
+      "difficulties": [3, 4]
+    },
+    {
+      "generator_ids": ["algebra.quadratic.factorisable_monic"],
+      "count": 2,
+      "difficulties": [2, 4]
+    },
+    {
+      "generator_ids": ["algebra.quadratic.factorisable_non_monic"],
+      "count": 2,
+      "difficulties": [1, 3]
+    }
+  ]
+}

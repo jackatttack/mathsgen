@@ -1,0 +1,16 @@
+{
+  "title": "Histograms and Box Plots",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["data.spread.histograms"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    },
+    {
+      "generator_ids": ["data.spread.box_plots"],
+      "count": 2,
+      "difficulties": [1, 2]
+    }
+  ]
+}

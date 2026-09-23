@@ -1,0 +1,7 @@
+# Core dependencies for running mathsgen off-device (for example a web API).
+# Pythonista ships a custom Matplotlib 3.3.3 build; servers need a modern
+# release. Re-export a specimen after the first server run: mathtext
+# spacing can differ slightly between Matplotlib versions.
+reportlab==4.4.3
+matplotlib>=3.7,<4
+sympy==1.11.1

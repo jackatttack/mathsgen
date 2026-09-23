@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+exports/
+saved_setups/
+launcher_settings.json
+worksheet_ui_settings.json

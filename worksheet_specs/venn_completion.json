@@ -1,0 +1,11 @@
+{
+  "title": "Venn Diagrams: Missing Values and Problem Solving",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["probability.venn.completion"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

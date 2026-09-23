@@ -1,0 +1,36 @@
+{
+  "title": "Proportion, Mixtures and Percentage Multipliers",
+  "shuffle": true,
+  "sections": [
+    {
+      "generator_ids": ["ratio.proportion.direct"],
+      "count": 2,
+      "difficulties": [2, 3]
+    },
+    {
+      "generator_ids": ["ratio.proportion.inverse"],
+      "count": 2,
+      "difficulties": [2, 4]
+    },
+    {
+      "generator_ids": ["number.compound.mixture_density"],
+      "count": 2,
+      "difficulties": [2, 4]
+    },
+    {
+      "generator_ids": ["number.compound.mixture_mass"],
+      "count": 2,
+      "difficulties": [1, 3]
+    },
+    {
+      "generator_ids": ["number.percentages.multiplier"],
+      "count": 2,
+      "difficulties": [3, 4]
+    },
+    {
+      "generator_ids": ["number.percentages.interpret_multiplier"],
+      "count": 2,
+      "difficulties": [3, 4]
+    }
+  ]
+}

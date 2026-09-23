@@ -1,0 +1,11 @@
+{
+  "title": "Completing the Square",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["algebra.quadratic.completing_square"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

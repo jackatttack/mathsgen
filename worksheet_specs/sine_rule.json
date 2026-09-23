@@ -1,0 +1,11 @@
+{
+  "title": "Sine Rule",
+  "shuffle": false,
+  "sections": [
+    {
+      "generator_ids": ["geometry.trigonometry.sine_rule"],
+      "count": 4,
+      "difficulties": [1, 2, 3, 4]
+    }
+  ]
+}

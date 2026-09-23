@@ -1,0 +1,36 @@
+{
+  "title": "Factorising, Indices, Rounding and Bounds",
+  "shuffle": true,
+  "sections": [
+    {
+      "generator_ids": ["algebra.factorising.difference_of_squares"],
+      "count": 2,
+      "difficulties": [2, 4]
+    },
+    {
+      "generator_ids": ["number.indices.quotient"],
+      "count": 2,
+      "difficulties": [3, 4]
+    },
+    {
+      "generator_ids": ["number.indices.power_of_power"],
+      "count": 2,
+      "difficulties": [2, 4]
+    },
+    {
+      "generator_ids": ["number.rounding.decimal_places"],
+      "count": 2,
+      "difficulties": [3, 4]
+    },
+    {
+      "generator_ids": ["number.rounding.significant_figures"],
+      "count": 2,
+      "difficulties": [3, 4]
+    },
+    {
+      "generator_ids": ["number.bounds.measurement"],
+      "count": 2,
+      "difficulties": [3, 4]
+    }
+  ]
+}

@@ -1,0 +1,628 @@
+{
+  "schema_version": 1,
+  "id": "theme-classic-source",
+  "title": "Theme check: classic",
+  "seed": 7,
+  "specification": {
+    "theme": "classic",
+    "show_source": true
+  },
+  "questions": [
+    {
+      "id": "695f2c24c28e693aeb9c82db411f50085dc97d35ce6f2d1c9d4fbe1b7a2e9bc3",
+      "generator_id": "algebra.expressions.like_terms",
+      "generator_version": 1,
+      "topic": "algebra",
+      "subtopic": "simplifying_expressions",
+      "difficulty": 4,
+      "seed": 7,
+      "settings": {},
+      "prompt": {
+        "text": "Simplify -3x + 8y + 2yx + 6xy - 8x.",
+        "math_tex": "",
+        "display_text": null,
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "text": "Simplify"
+          },
+          {
+            "kind": "equation",
+            "tex": "-3x + 8y + 2yx + 6xy - 8x",
+            "text": "-3x + 8y + 2yx + 6xy - 8x"
+          }
+        ]
+      },
+      "answer": {
+        "kind": "polynomial_terms",
+        "terms": [
+          [
+            8,
+            [
+              [
+                "x",
+                1
+              ],
+              [
+                "y",
+                1
+              ]
+            ]
+          ],
+          [
+            -11,
+            [
+              [
+                "x",
+                1
+              ]
+            ]
+          ],
+          [
+            8,
+            [
+              [
+                "y",
+                1
+              ]
+            ]
+          ]
+        ]
+      },
+      "answer_display": {
+        "text": "8xy - 11x + 8y",
+        "math_tex": "8xy - 11x + 8y",
+        "display_text": null,
+        "blocks": []
+      },
+      "worked_solution": [],
+      "marks": 3,
+      "tags": [
+        "algebra",
+        "simplifying",
+        "like_terms"
+      ],
+      "layout_hint": {
+        "working_lines": 4,
+        "keep_together": true
+      },
+      "parameters": {
+        "terms": [
+          [
+            -3,
+            [
+              [
+                "x",
+                1
+              ]
+            ]
+          ],
+          [
+            8,
+            [
+              [
+                "y",
+                1
+              ]
+            ]
+          ],
+          [
+            2,
+            [
+              [
+                "y",
+                1
+              ],
+              [
+                "x",
+                1
+              ]
+            ]
+          ],
+          [
+            6,
+            [
+              [
+                "x",
+                1
+              ],
+              [
+                "y",
+                1
+              ]
+            ]
+          ],
+          [
+            -8,
+            [
+              [
+                "x",
+                1
+              ]
+            ]
+          ]
+        ]
+      },
+      "diagram": null,
+      "schema_version": 5,
+      "choices": [],
+      "question_visuals": [],
+      "answer_visuals": []
+    },
+    {
+      "id": "2b9320a6a2db9fc59fc0f2b664ed5357b352f6a8039f58dff1eb375dba2b128c",
+      "generator_id": "algebra.rearranging.changing_subject",
+      "generator_version": 3,
+      "topic": "algebra",
+      "subtopic": "changing_subject",
+      "difficulty": 3,
+      "seed": 7,
+      "settings": {},
+      "prompt": {
+        "text": "Make x the subject. All other letters represent positive numbers. The denominator in the formula is nonzero. g = p/(8x + n)",
+        "math_tex": "g = \\frac{p}{8x + n}",
+        "display_text": "Make x the subject. All other letters represent positive numbers. The denominator in the formula is nonzero.",
+        "blocks": []
+      },
+      "answer": {
+        "kind": "subject_formula",
+        "subject": "x",
+        "expression": "(p-n*g)/(8*g)"
+      },
+      "answer_display": {
+        "text": "x = (p - ng)/(8g)",
+        "math_tex": "x = \\frac{p - ng}{8g}",
+        "display_text": null,
+        "blocks": []
+      },
+      "worked_solution": [],
+      "marks": 3,
+      "tags": [
+        "algebra",
+        "rearranging",
+        "changing_subject",
+        "factorising"
+      ],
+      "layout_hint": {
+        "working_lines": 7,
+        "keep_together": true
+      },
+      "parameters": {
+        "form": "reciprocal",
+        "k": 8,
+        "letters": [
+          "g",
+          "p",
+          "n"
+        ]
+      },
+      "diagram": null,
+      "schema_version": 5,
+      "choices": [],
+      "question_visuals": [],
+      "answer_visuals": []
+    },
+    {
+      "id": "f4a1330532fa5930ba75c68890d52b33f68a9c179d08d83a079e0bb2fa8c0bd7",
+      "generator_id": "geometry.trigonometry.cosine_rule",
+      "generator_version": 4,
+      "topic": "geometry",
+      "subtopic": "trigonometry",
+      "difficulty": 2,
+      "seed": 7,
+      "settings": {},
+      "prompt": {
+        "text": "In triangle ABC, AB = 20 cm, AC = 19 cm and BC = 15 cm. Find angle ABC. Give answers to 1 decimal place.",
+        "math_tex": "",
+        "display_text": null,
+        "blocks": []
+      },
+      "answer": {
+        "kind": "rounded_measure",
+        "value": "639/10",
+        "unit": "degrees"
+      },
+      "answer_display": {
+        "text": "63.9 degrees",
+        "math_tex": "",
+        "display_text": null,
+        "blocks": []
+      },
+      "worked_solution": [],
+      "marks": 3,
+      "tags": [
+        "geometry",
+        "trigonometry",
+        "cosine_rule"
+      ],
+      "layout_hint": {
+        "working_lines": 5,
+        "keep_together": true
+      },
+      "parameters": {
+        "form": "angle",
+        "orientation": [
+          210,
+          true
+        ],
+        "names": "BAC",
+        "a": 19,
+        "b": 15,
+        "c": 20
+      },
+      "diagram": null,
+      "schema_version": 5,
+      "choices": [],
+      "question_visuals": [
+        {
+          "kind": "scene",
+          "version": 1,
+          "width": 360,
+          "height": 258.0,
+          "caption": "Not drawn accurately",
+          "nodes": [
+            {
+              "type": "polygon",
+              "points": [
+                [
+                  90.4,
+                  120.54
+                ],
+                [
+                  269.6,
+                  224.0
+                ],
+                [
+                  219.21,
+                  34.0
+                ]
+              ]
+            },
+            {
+              "type": "label",
+              "point": [
+                74.42,
+                119.66
+              ],
+              "text": "B"
+            },
+            {
+              "type": "label",
+              "point": [
+                279.46,
+                236.6
+              ],
+              "text": "A"
+            },
+            {
+              "type": "label",
+              "point": [
+                223.58,
+                18.61
+              ],
+              "text": "C"
+            },
+            {
+              "type": "label",
+              "point": [
+                169.13,
+                191.11
+              ],
+              "text": "20 cm"
+            },
+            {
+              "type": "label",
+              "point": [
+                142.18,
+                58.47
+              ],
+              "text": "15 cm"
+            },
+            {
+              "type": "label",
+              "point": [
+                272.42,
+                121.57
+              ],
+              "text": "19 cm"
+            },
+            {
+              "type": "label",
+              "point": [
+                114.39,
+                119.72
+              ],
+              "text": "x"
+            }
+          ]
+        }
+      ],
+      "answer_visuals": []
+    },
+    {
+      "id": "e08c8b6a3970f37f0ac9bafb9f46e3c642c3f8cf0e7e9ed0629082bb5822298a",
+      "generator_id": "geometry.circle_theorems.centre_angle",
+      "generator_version": 2,
+      "topic": "geometry",
+      "subtopic": "circle_theorems",
+      "difficulty": 2,
+      "seed": 7,
+      "settings": {},
+      "prompt": {
+        "text": "O is the centre of the circle. A, B and C lie on the circumference. Find x. Marked: the minor angle AOB is 116 degrees; angle ACB is x degrees. C lies on the major arc AB.",
+        "math_tex": "",
+        "display_text": "O is the centre of the circle. A, B and C lie on the circumference. Find x.",
+        "blocks": []
+      },
+      "answer": {
+        "kind": "integer",
+        "value": 58
+      },
+      "answer_display": {
+        "text": "x = 58 degrees",
+        "math_tex": "58^{\\circ}",
+        "display_text": null,
+        "blocks": []
+      },
+      "worked_solution": [],
+      "marks": 1,
+      "tags": [
+        "geometry",
+        "circle_theorems",
+        "angles",
+        "equations"
+      ],
+      "layout_hint": {
+        "working_lines": 3,
+        "keep_together": true
+      },
+      "parameters": {
+        "form": "circumference",
+        "names": "ABC",
+        "orientation": [
+          0,
+          true
+        ],
+        "c_shift": 5,
+        "central": [
+          0,
+          116
+        ],
+        "circumference": [
+          1,
+          0
+        ]
+      },
+      "diagram": null,
+      "schema_version": 5,
+      "choices": [],
+      "question_visuals": [
+        {
+          "kind": "scene",
+          "version": 1,
+          "width": 360,
+          "height": 285.62,
+          "caption": "Not drawn accurately",
+          "nodes": [
+            {
+              "type": "circle",
+              "center": [
+                180.0,
+                134.0
+              ],
+              "radius": 100.0
+            },
+            {
+              "type": "circle",
+              "center": [
+                180.0,
+                134.0
+              ],
+              "radius": 1.6,
+              "shade": true
+            },
+            {
+              "type": "line",
+              "points": [
+                [
+                  180.0,
+                  134.0
+                ],
+                [
+                  264.8,
+                  81.01
+                ]
+              ]
+            },
+            {
+              "type": "line",
+              "points": [
+                [
+                  180.0,
+                  134.0
+                ],
+                [
+                  95.2,
+                  81.01
+                ]
+              ]
+            },
+            {
+              "type": "line",
+              "points": [
+                [
+                  188.72,
+                  233.62
+                ],
+                [
+                  264.8,
+                  81.01
+                ]
+              ]
+            },
+            {
+              "type": "line",
+              "points": [
+                [
+                  188.72,
+                  233.62
+                ],
+                [
+                  95.2,
+                  81.01
+                ]
+              ]
+            },
+            {
+              "type": "label",
+              "point": [
+                278.37,
+                72.53
+              ],
+              "text": "A"
+            },
+            {
+              "type": "label",
+              "point": [
+                81.63,
+                72.53
+              ],
+              "text": "B"
+            },
+            {
+              "type": "label",
+              "point": [
+                190.11,
+                249.56
+              ],
+              "text": "C"
+            },
+            {
+              "type": "label",
+              "point": [
+                180.0,
+                149.0
+              ],
+              "text": "O"
+            },
+            {
+              "type": "arc",
+              "center": [
+                180.0,
+                134.0
+              ],
+              "radius": 18.0,
+              "start": 328.0,
+              "sweep": -116.0
+            },
+            {
+              "type": "label",
+              "point": [
+                180.0,
+                104.0
+              ],
+              "tex": "116^{\\circ}"
+            },
+            {
+              "type": "arc",
+              "center": [
+                188.72,
+                233.62
+              ],
+              "radius": 18.0,
+              "start": 296.5,
+              "sweep": -58.0
+            },
+            {
+              "type": "label",
+              "point": [
+                187.1,
+                196.53
+              ],
+              "tex": "x^{\\circ}"
+            }
+          ]
+        }
+      ],
+      "answer_visuals": []
+    },
+    {
+      "id": "3bcc8a48b1413a0c8ae2c807862cf1042a0494ff97c7e44e2a3f6a3c67bf8d51",
+      "generator_id": "probability.venn.probabilities",
+      "generator_version": 1,
+      "topic": "probability",
+      "subtopic": "venn_diagrams",
+      "difficulty": 3,
+      "seed": 7,
+      "settings": {},
+      "prompt": {
+        "text": "The Venn diagram shows 34 people. One person is selected at random. Find P(A union B'). Give your answer as a fraction in its simplest form.",
+        "math_tex": "P(A\\cup B^{\\prime})",
+        "display_text": "The Venn diagram shows 34 people. One person is selected at random. Find the following probability. Give your answer as a fraction in its simplest form:",
+        "blocks": []
+      },
+      "answer": {
+        "kind": "rational",
+        "value": "16/17"
+      },
+      "answer_display": {
+        "text": "16/17",
+        "math_tex": "\\frac{16}{17}",
+        "display_text": null,
+        "blocks": []
+      },
+      "worked_solution": [],
+      "marks": 3,
+      "tags": [
+        "probability",
+        "venn",
+        "sets",
+        "conditional_probability"
+      ],
+      "layout_hint": {
+        "working_lines": 2,
+        "keep_together": true
+      },
+      "parameters": {
+        "counts": [
+          4,
+          15,
+          2,
+          13
+        ],
+        "event": "A_or_not_B"
+      },
+      "diagram": null,
+      "schema_version": 5,
+      "choices": [],
+      "question_visuals": [
+        {
+          "kind": "venn",
+          "version": 1,
+          "shaded": [],
+          "values": [
+            4,
+            15,
+            2,
+            13
+          ],
+          "missing": []
+        }
+      ],
+      "answer_visuals": [
+        {
+          "kind": "venn",
+          "version": 1,
+          "shaded": [],
+          "values": [
+            4,
+            15,
+            2,
+            13
+          ],
+          "missing": []
+        }
+      ]
+    }
+  ]
+}
