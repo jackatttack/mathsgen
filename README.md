@@ -1,6 +1,6 @@
 # MathsGen
 
-Generate GCSE maths practice worksheets and answer keys on an iPhone or iPad with Pythonista. Pick individual skills or build a mixed mini paper, then open, share, or save the resulting A4 PDFs. Questions use reproducible seeds and exact answers where appropriate.
+Generate GCSE maths practice worksheets and answer keys on an iPhone or iPad with Pythonista. Pick individual skills, build a mixed mini paper, or generate a full Edexcel-style GCSE exam paper, then open, share, or save the resulting A4 PDFs. Questions use reproducible seeds and exact answers where appropriate.
 
 [See a sample worksheet](examples/questions.pdf) · [See its answer key](examples/answers.pdf)
 
@@ -24,8 +24,9 @@ The installer downloads the current `main` branch to local `Documents/mathsgen/`
 
 The launcher opens the **Worksheet Maker**. Enter a title, then choose a mode at the top:
 
-- **Selected skills:** Expand a subject and its topic groups, or search for a skill. Tick the skills you want. Set the number of questions *per selected skill* and select difficulty levels 1–4. The levels describe progression within each skill; they are not GCSE grades. Use Set order or Random, choose whether to include an answer key, and select a PDF style.
+- **Skills:** Expand a subject and its topic groups, or search for a skill. Tick the skills you want. Set the number of questions *per selected skill* and select difficulty levels 1–4. The levels describe progression within each skill; they are not GCSE grades. Use Set order or Random, choose whether to include an answer key, and select a PDF style.
 - **Mini paper:** Set the total number of questions, levels, and included subjects. MathsGen chooses a mix across those subjects and orders questions from easier to harder.
+- **Exam paper:** Choose Foundation or Higher and Paper 1, 2 or 3. MathsGen builds an Edexcel-style paper worth exactly 80 marks, balanced across Number, Algebra, Ratio, Geometry, and Probability & Statistics using the published tier weightings, ordered by approximate grade. Paper 1 is non-calculator; papers 2 and 3 favour calculator questions. Grades are indicative, not exam-board calibrated.
 
 Tap **Generate preview**. Open worksheet or answers from the bottom bar. Use the PDF viewer's Share control to send a preview to another app. Tap **Save worksheet** to keep the *same* generated PDFs in `mathsgen/exports/`; it does not generate new questions. Your selections persist between sessions. Previews use temporary device storage, so save any you want to keep.
 

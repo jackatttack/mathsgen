@@ -98,6 +98,8 @@ class WorksheetBuilder(ui.View):
         self.mini_total = 12
         self.topics = list(dict.fromkeys(group["topic"] for group in self.groups))
         self.mini_subjects = set(self.topics)
+        self.exam_tier = "higher"
+        self.exam_paper = 1
 
         self.scroll = ui.ScrollView()
         self.scroll.always_bounce_vertical = True
@@ -145,15 +147,29 @@ class WorksheetBuilder(ui.View):
         self.clear = button("Clear", self.clear_selection)
 
         self.mode_control = ui.SegmentedControl()
-        self.mode_control.segments = ["Selected skills", "Mini paper"]
+        self.mode_control.segments = ["Skills", "Mini paper", "Exam paper"]
         self.mode_control.selected_index = 0
         self.mode_control.tint_color = ACCENT
         self.mode_control.action = self.change_mode
         self.order_note = label("Order: easier → harder (automatic)", 13)
         self.order_note.text_color = MUTED
+        # Exam papers: the builder sets marks, grades, title and order; only
+        # the tier and paper number are chosen here.
+        self.exam_tier_control = ui.SegmentedControl()
+        self.exam_tier_control.segments = ["Foundation", "Higher"]
+        self.exam_tier_control.tint_color = ACCENT
+        self.exam_tier_control.action = self.change_exam
+        self.exam_paper_control = ui.SegmentedControl()
+        self.exam_paper_control.segments = ["Paper 1", "Paper 2", "Paper 3"]
+        self.exam_paper_control.tint_color = ACCENT
+        self.exam_paper_control.action = self.change_exam
+        self.exam_note = label("", 12)
+        self.exam_note.text_color = MUTED
+        self.exam_note.number_of_lines = 2
 
         for view in [
             self.mode_control, self.order_note,
+            self.exam_tier_control, self.exam_paper_control, self.exam_note,
             self.heading, self.subtitle, self.title_field, self.count_label,
             self.minus, self.plus, self.count_field, self.difficulty_label,
             *self.level_buttons, self.order, self.answers_label, self.answers,
@@ -298,6 +314,17 @@ class WorksheetBuilder(ui.View):
             control.hidden = not has_preview
         self.scroll.frame = (0, 0, self.width, max(100, self.height - footer_height))
         mini = self.mode == "mini"
+        exam = self.mode == "exam"
+        # Exam mode replaces the title, count and difficulty rows with the
+        # tier and paper choices; the builder sets everything else.
+        for view in (self.title_field, self.count_label, self.minus, self.plus,
+                     self.count_field, self.difficulty_label, *self.level_buttons):
+            view.hidden = exam
+        for view in (self.exam_tier_control, self.exam_paper_control, self.exam_note):
+            view.hidden = not exam
+        self.exam_tier_control.frame = (left, 114, width, 34)
+        self.exam_paper_control.frame = (left, 158, width, 34)
+        self.exam_note.frame = (left, 198, width, 44)
         self.heading.frame = (left, 12, width, 30)
         self.mode_control.frame = (left, 48, width, 32)
         self.subtitle.frame = (left, 84, width, 24)
@@ -313,21 +340,24 @@ class WorksheetBuilder(ui.View):
                           216, pill_width - 5, 34)
         # Mini papers always run easier to harder, so the order control is
         # replaced by a note rather than silently ignored.
-        self.order.hidden = mini
+        self.order.hidden = mini or exam
         self.order_note.hidden = not mini
         self.order.frame = (left, 264, width, 34)
         self.order_note.frame = (left, 264, width, 34)
-        self.answers_label.frame = (left, 310, 130, 32)
-        self.answers.frame = (left + width - 51, 310, 51, 32)
-        self.theme_label.frame = (left, 356, 110, 34)
-        self.theme_control.frame = (left + width - 230, 356, 230, 34)
+        settings_y = 250 if exam else 310
+        self.answers_label.frame = (left, settings_y, 130, 32)
+        self.answers.frame = (left + width - 51, settings_y, 51, 32)
+        self.theme_label.frame = (left, settings_y + 46, 110, 34)
+        self.theme_control.frame = (left + width - 230, settings_y + 46, 230, 34)
         self.list_heading.text = "SUBJECTS" if mini else "SKILLS"
         self.list_heading.frame = (left, 404, width - 165, 32)
         self.select_all.frame = (left + width - 165, 402, 90, 36)
         self.clear.frame = (left + width - 75, 402, 75, 36)
         self.clear.title = "Clear all"
-        self.search_field.hidden = mini
-        self.search_clear.hidden = mini
+        self.search_field.hidden = mini or exam
+        self.search_clear.hidden = mini or exam
+        for view in (self.list_heading, self.select_all, self.clear):
+            view.hidden = exam
         self.search_field.frame = (left, 444, width - 64, 40)
         self.search_clear.frame = (left + width - 60, 444, 60, 40)
         query = self.search_field.text or ""
@@ -345,6 +375,10 @@ class WorksheetBuilder(ui.View):
             control.hidden = True
         for info, row, title, detail, tick in self.rows:
             row.hidden = True
+        if exam:
+            self.empty_label.hidden = True
+            self.finish_layout(settings_y + 92, left, width, footer_height)
+            return
         if mini:
             # Individual skill selections stay hidden but preserved.
             y = 444
@@ -474,10 +508,19 @@ class WorksheetBuilder(ui.View):
             subjects = state.get("mini_subjects")
             if isinstance(subjects, list) and all(isinstance(x, str) for x in subjects):
                 self.mini_subjects = set(subjects) & set(self.topics)
+            tier = state.get("exam_tier")
+            if tier in ("foundation", "higher"):
+                self.exam_tier = tier
+            paper = state.get("exam_paper")
+            if type(paper) is int and paper in (1, 2, 3):
+                self.exam_paper = paper
             if state.get("mode") == "mini":
                 self.mode = "mini"
                 self.mode_control.selected_index = 1
                 self.count_field.text = str(self.mini_total)
+            elif state.get("mode") == "exam":
+                self.mode = "exam"
+                self.mode_control.selected_index = 2
             expanded = state.get("expanded_groups", [])
             if isinstance(expanded, list) and all(isinstance(key, str) for key in expanded):
                 self.expanded_groups = set(expanded) & set(self.group_headers)
@@ -498,6 +541,8 @@ class WorksheetBuilder(ui.View):
                 "mode": self.mode,
                 "mini_total": self.mini_total,
                 "mini_subjects": sorted(self.mini_subjects),
+                "exam_tier": self.exam_tier,
+                "exam_paper": self.exam_paper,
                 "title": self.title_field.text,
                 "shuffle": self.order.selected_index == 1,
                 "answers": self.answers.value,
@@ -515,14 +560,31 @@ class WorksheetBuilder(ui.View):
         except ValueError:
             count, valid = 0, False
         mini = self.mode == "mini"
+        exam = self.mode == "exam"
         self.count_label.text = "Total questions" if mini else "Questions per type"
-        self.subtitle.text = (
-            "A balanced paper that gets harder as it goes." if mini
-            else "Tick skills below. Each gets the same question count."
-        )
+        if exam:
+            self.subtitle.text = "Edexcel-style: 80 marks, weighted by strand, easiest first."
+        else:
+            self.subtitle.text = (
+                "A balanced paper that gets harder as it goes." if mini
+                else "Tick skills below. Each gets the same question count."
+            )
         if not self.busy:
-            self.generate_button.title = "Generate mini paper" if mini else "Generate preview"
-        if mini:
+            self.generate_button.title = (
+                "Generate exam paper" if exam
+                else "Generate mini paper" if mini else "Generate preview"
+            )
+        self.exam_tier_control.selected_index = 0 if self.exam_tier == "foundation" else 1
+        self.exam_paper_control.selected_index = self.exam_paper - 1
+        calculator = "non-calculator" if self.exam_paper == 1 else "calculator allowed"
+        self.exam_note.text = (
+            "Paper {} is {}. Title, questions, marks and order are set automatically."
+        ).format(self.exam_paper, calculator)
+        if exam:
+            self.total_label.text = "{} · Paper {} · 80 marks".format(
+                self.exam_tier.title(), self.exam_paper)
+            can_generate = True
+        elif mini:
             self.total_label.text = "{} questions · {} of {} subjects".format(
                 count, len(self.mini_subjects), len(self.topics)
             )
@@ -677,7 +739,7 @@ class WorksheetBuilder(ui.View):
             count = int(self.count_field.text)
         except ValueError:
             return
-        if count < 1:
+        if count < 1 or self.mode == "exam":
             return
         if self.mode == "mini":
             self.mini_total = count
@@ -687,9 +749,15 @@ class WorksheetBuilder(ui.View):
     def change_mode(self, sender):
         """Switch modes, preserving each mode's count and selections."""
         self.store_count()
-        self.mode = "mini" if self.mode_control.selected_index == 1 else "skills"
+        self.mode = ("skills", "mini", "exam")[self.mode_control.selected_index]
         self.count_field.text = str(self.mini_total if self.mode == "mini" else self.per_type_count)
         self.status.text = ""
+        self.settings_changed(sender)
+
+    def change_exam(self, sender):
+        """Tier and paper choices for exam mode."""
+        self.exam_tier = ("foundation", "higher")[self.exam_tier_control.selected_index]
+        self.exam_paper = self.exam_paper_control.selected_index + 1
         self.settings_changed(sender)
 
     def toggle_subject(self, sender):
@@ -706,9 +774,13 @@ class WorksheetBuilder(ui.View):
         self.count_field.end_editing()
         self.search_field.end_editing()
         mini = self.mode == "mini"
+        exam = self.mode == "exam"
+        tier, paper = self.exam_tier, self.exam_paper
         try:
             title = self.title_field.text.strip()
-            if mini:
+            if exam:
+                spec = None
+            elif mini:
                 total = int(self.count_field.text)
                 if total < 1:
                     raise ValueError("Enter a positive total number of questions.")
@@ -737,7 +809,10 @@ class WorksheetBuilder(ui.View):
         def work():
             try:
                 from .preview import create_preview
-                if mini:
+                if exam:
+                    from .exam_paper import build_exam_paper
+                    worksheet = build_exam_paper(self.registry, tier, paper, seed)
+                elif mini:
                     from .mini_paper import build_mini_paper
                     worksheet = build_mini_paper(
                         self.registry, total, levels, subjects, title, seed,

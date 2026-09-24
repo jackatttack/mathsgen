@@ -1,0 +1,94 @@
+"""Angle facts: focused checks, scene widths and a specimen (gates registration)."""
+import sys as _mathsgen_test_sys
+from pathlib import Path as _MathsGenTestPath
+_MATHSGEN_PROJECT_ROOT = _MathsGenTestPath(__file__).resolve().parent.parent
+if str(_MATHSGEN_PROJECT_ROOT) not in _mathsgen_test_sys.path:
+    _mathsgen_test_sys.path.insert(0, str(_MATHSGEN_PROJECT_ROOT))
+
+import json
+import tempfile
+from dataclasses import replace
+from pathlib import Path
+from types import SimpleNamespace
+
+from launch_mathsgen import load_engine
+
+
+SEEDS = 40
+SPECIMEN_SEEDS = (5, 6)
+SCENE_WIDTHS = (360, 250, 238)
+
+
+def bump_first_int(value):
+    """Add one to the first integer found (dict keys in sorted order)."""
+    if type(value) is int:
+        return value + 1, True
+    if isinstance(value, list):
+        out, done = [], False
+        for item in value:
+            if not done:
+                item, done = bump_first_int(item)
+            out.append(item)
+        return out, done
+    if isinstance(value, dict):
+        out, done = {}, False
+        for key in sorted(value):
+            item = value[key]
+            if not done:
+                item, done = bump_first_int(item)
+            out[key] = item
+        return out, done
+    return value, False
+
+
+def rejects(generator, question, reason):
+    try:
+        generator.validate(question)
+    except ValueError:
+        return
+    raise AssertionError("{} accepted {}".format(generator.info.id, reason))
+
+
+def main():
+    load_engine()
+    from mathsgen.angle_facts import AngleFacts
+    from mathsgen.pdf import render_pdf
+    from mathsgen.visuals import draw_scene
+    generator = AngleFacts()
+    specimen = []
+    for level in (1, 2, 3, 4):
+        prompts, forms = set(), {}
+        for seed in range(SEEDS):
+            q = generator.generate(seed, level)
+            generator.validate_independently(q)
+            prompts.add(q.prompt.text)
+            form = q.parameters["form"]
+            forms[form] = forms.get(form, 0) + 1
+            for scene in q.visual_assets("questions"):
+                for width in SCENE_WIDTHS:
+                    draw_scene(scene, width)
+            rejects(generator, replace(q, answer={"kind": "angle", "value": "999"}),
+                    "a wrong answer")
+            rejects(generator, replace(q, prompt=replace(q.prompt, text=q.prompt.text + " ")),
+                    "an altered prompt")
+            altered, changed = bump_first_int(json.loads(json.dumps(q.parameters)))
+            if changed:
+                rejects(generator, replace(q, parameters=altered), "altered parameters")
+        for seed in SPECIMEN_SEEDS:
+            specimen.append(generator.generate(seed, level))
+        sample = specimen[-1]
+        print("L{} ({} distinct / {}, forms {}): {} -> {}".format(
+            level, len(prompts), SEEDS, forms, sample.prompt.text, sample.answer_display.text))
+
+    export_root = Path(__file__).resolve().parent.parent / "exports"
+    export_root.mkdir(exist_ok=True)
+    directory = Path(tempfile.mkdtemp(prefix="angle_facts_", dir=str(export_root)))
+    worksheet = SimpleNamespace(title="Angle facts specimen", id="angle-facts-specimen",
+                                specification={}, questions=specimen)
+    for mode in ("questions", "answers"):
+        print(render_pdf(worksheet, directory / (mode + ".pdf"), mode))
+    print("PASS: angle facts.")
+
+
+if __name__ == "__main__":
+    main()

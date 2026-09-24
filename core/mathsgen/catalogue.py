@@ -102,6 +102,25 @@ from .probability_data import TwoWayTables, ExpectedFrequency
 from .area_shapes import BasicShapeArea
 from .capture_recapture import CaptureRecapture
 from .frequency_trees import FrequencyTrees
+from .bearings import Bearings
+from .vector_geometry import VectorGeometry
+from .iteration import Iteration
+from .circle_equations import CircleEquations
+from .money_problems import MoneyProblems
+from .curved_solids import CurvedSolids
+from .algebraic_proof import AlgebraicProof
+from .basic_probability import BasicProbability
+from .triple_brackets import TripleBrackets
+from .geometric_sequences import GeometricSequences
+from .column_vectors import ColumnVectors
+from .exact_trig import ExactTrig
+from .scatter_graphs import ScatterGraphs
+from .travel_graphs import TravelGraphs
+from .place_value import PlaceValue
+from .bar_pie_charts import BarPieCharts
+from .graph_transformations import GraphTransformations
+from .angle_facts import AngleFacts
+from .three_d_trig import ThreeDTrig
 
 
 def build_registry():
@@ -148,6 +167,25 @@ def build_registry():
     registry.register(IndexQuotient())
     registry.register(IndexPower())
     registry.register(RoundDecimalPlaces())
+    registry.register(Bearings())
+    registry.register(VectorGeometry())
+    registry.register(Iteration())
+    registry.register(CircleEquations())
+    registry.register(MoneyProblems())
+    registry.register(CurvedSolids())
+    registry.register(AlgebraicProof())
+    registry.register(BasicProbability())
+    registry.register(TripleBrackets())
+    registry.register(GeometricSequences())
+    registry.register(ColumnVectors())
+    registry.register(ExactTrig())
+    registry.register(ScatterGraphs())
+    registry.register(TravelGraphs())
+    registry.register(PlaceValue())
+    registry.register(BarPieCharts())
+    registry.register(GraphTransformations())
+    registry.register(AngleFacts())
+    registry.register(ThreeDTrig())
     registry.register(RoundSignificantFigures())
     registry.register(MeasurementBounds())
     registry.register(DirectProportion())

@@ -197,6 +197,161 @@ def cylinder_scene(radius, height, radius_label=None, height_label=None, diamete
     return scene(nodes, scene_height)
 
 
+# ------------------------------------------------------------ curved solids and pyramids
+#
+# These drawers build raw points with y upwards, the renderer's direction,
+# and fit them to the canvas; unlike prism_scene they never negate y.
+
+def rim(centre, rx, ry, front):
+    """Half an ellipse as segments: the front (lower) half solid, the back half dashed."""
+    count = ELLIPSE_POINTS // 2
+    start = math.pi if front else 0.0
+    points = [(centre[0] + rx * math.cos(start + math.pi * i / count),
+               centre[1] + ry * math.sin(start + math.pi * i / count))
+              for i in range(count + 1)]
+    return [line(points[i], points[i + 1], dashed=not front) for i in range(count)]
+
+
+def dot(point):
+    return {"type": "circle", "center": figures.rounded(point), "radius": 1.6, "shade": True}
+
+
+def beside(point, text, side):
+    """A label to the right (side 1) or left (side -1) of a point, clear at every width."""
+    offset = LABEL_GAP + HALF_CHARACTER * len(text)
+    return {"type": "label", "text": text,
+            "point": figures.rounded((point[0] + side * offset, point[1]))}
+
+
+def dimension(x, low, high, text, side):
+    """An exam-style vertical dimension line with arrows at both ends, labelled beside it."""
+    middle = (x, (low + high) / 2)
+    return [
+        {"type": "line", "points": [figures.rounded(middle), figures.rounded((x, high))],
+         "arrow": True},
+        {"type": "line", "points": [figures.rounded(middle), figures.rounded((x, low))],
+         "arrow": True},
+        beside(middle, text, side),
+    ]
+
+
+# Canvas gap between a solid and its dimension line.
+DIMENSION_GAP = 16
+# Extra raw width, as a multiple of the radius, left for an outside label.
+LABEL_REACH = 1.8
+
+
+def cone_scene(radius, height, radius_label=None, height_label=None, slant_label=None):
+    """Upright cone at true proportions; the back half of the base rim is dashed."""
+    ry = radius * ELLIPSE_RATIO
+    left_reach = -radius * (LABEL_REACH if height_label else 1)
+    right_reach = radius * (LABEL_REACH if radius_label else 1)
+    place, scene_height = fit([(left_reach, -ry), (right_reach, height)])
+    centre, apex = place((0, 0)), place((0, height))
+    right, left = place((radius, 0)), place((-radius, 0))
+    rx, ry_canvas = right[0] - centre[0], place((0, ry))[1] - centre[1]
+    nodes = rim(centre, rx, ry_canvas, True) + rim(centre, rx, ry_canvas, False)
+    nodes += [line(apex, left), line(apex, right), dot(centre)]
+    if radius_label:
+        nodes.append(line(centre, right))
+        nodes.append(beside(right, radius_label, 1))
+    if height_label:
+        nodes.append(line(apex, centre, dashed=True))
+        nodes.append({"type": "right_angle", "vertex": figures.rounded(centre),
+                      "first": figures.rounded(apex), "second": figures.rounded(right)})
+        nodes += dimension(left[0] - DIMENSION_GAP, centre[1], apex[1], height_label, -1)
+    if slant_label:
+        nodes.append(side_text(apex, right, centre, slant_label))
+    return scene(nodes, scene_height)
+
+
+def sphere_scene(radius, radius_label=None):
+    """Sphere outline with a dashed back equator and a labelled radius."""
+    reach = radius * (LABEL_REACH if radius_label else 1)
+    place, scene_height = fit([(-radius, -radius), (reach, radius)])
+    centre = place((0, 0))
+    right = place((radius, 0))
+    outline = right[0] - centre[0]
+    nodes = [{"type": "circle", "center": figures.rounded(centre), "radius": round(outline, 2)}]
+    nodes += rim(centre, outline, outline * ELLIPSE_RATIO, True)
+    nodes += rim(centre, outline, outline * ELLIPSE_RATIO, False)
+    nodes.append(dot(centre))
+    if radius_label:
+        nodes.append(line(centre, right))
+        nodes.append(beside(right, radius_label, 1))
+    return scene(nodes, scene_height)
+
+
+def hemisphere_scene(radius, radius_label=None):
+    """Solid hemisphere on its flat face; the dome hides the back of the rim."""
+    reach = radius * (LABEL_REACH if radius_label else 1)
+    place, scene_height = fit([(-radius, -radius * ELLIPSE_RATIO), (reach, radius)])
+    centre = place((0, 0))
+    right = place((radius, 0))
+    outline = right[0] - centre[0]
+    nodes = [{"type": "arc", "center": figures.rounded(centre), "radius": round(outline, 2),
+              "start": 0, "sweep": 180}]
+    nodes += rim(centre, outline, outline * ELLIPSE_RATIO, True)
+    nodes += rim(centre, outline, outline * ELLIPSE_RATIO, False)
+    nodes.append(dot(centre))
+    if radius_label:
+        nodes.append(line(centre, right))
+        nodes.append(beside(right, radius_label, 1))
+    return scene(nodes, scene_height)
+
+
+def pyramid_scene(side, height, side_label=None, height_label=None):
+    """Square-based pyramid; the base is drawn obliquely and the back corner is hidden."""
+    turn = math.radians(DEPTH_ANGLE)
+    dx = side * DEPTH_SCALE * math.cos(turn)
+    dy = side * DEPTH_SCALE * math.sin(turn)
+    raw = {"A": (0, 0), "B": (side, 0), "C": (side + dx, dy), "D": (dx, dy)}
+    base_centre = ((side + dx) / 2, dy / 2)
+    raw["P"] = (base_centre[0], base_centre[1] + height)
+    raw["O"] = base_centre
+    room = [(side + dx + side * 0.8, 0)] if height_label else []
+    place, scene_height = fit(list(raw.values()) + room)
+    p = {name: place(point) for name, point in raw.items()}
+    nodes = [
+        line(p["A"], p["B"]), line(p["B"], p["C"]),
+        line(p["C"], p["D"], dashed=True), line(p["D"], p["A"], dashed=True),
+        line(p["P"], p["A"]), line(p["P"], p["B"]), line(p["P"], p["C"]),
+        line(p["P"], p["D"], dashed=True),
+    ]
+    if side_label:
+        nodes.append(side_text(p["A"], p["B"], p["P"], side_label))
+    if height_label:
+        nodes.append(line(p["P"], p["O"], dashed=True))
+        edge = max(p["B"][0], p["C"][0]) + DIMENSION_GAP
+        nodes += dimension(edge, p["O"][1], p["P"][1], height_label, 1)
+    return scene(nodes, scene_height)
+
+
+def frustum_scene(radius, height, scale, radius_label=None):
+    """Frustum of a cone cut at (1 - scale) of its height; the removed cone is dashed."""
+    ry = radius * ELLIPSE_RATIO
+    reach = radius * (LABEL_REACH if radius_label else 1)
+    place, scene_height = fit([(-radius, -ry), (reach, height)])
+    centre, apex = place((0, 0)), place((0, height))
+    top_centre = place((0, height * (1 - scale)))
+    right = place((radius, 0))
+    rx, ry_canvas = right[0] - centre[0], place((0, ry))[1] - centre[1]
+    top_rx, top_ry = rx * scale, ry_canvas * scale
+    nodes = rim(centre, rx, ry_canvas, True) + rim(centre, rx, ry_canvas, False)
+    nodes.append({"type": "polygon", "points": [figures.rounded(point)
+                                                for point in ellipse(top_centre, top_rx, top_ry)]})
+    for sign in (-1, 1):
+        bottom_edge = (centre[0] + sign * rx, centre[1])
+        top_edge = (top_centre[0] + sign * top_rx, top_centre[1])
+        nodes.append(line(bottom_edge, top_edge))
+        nodes.append(line(top_edge, apex, dashed=True))
+    nodes.append(dot(centre))
+    if radius_label:
+        nodes.append(line(centre, right))
+        nodes.append(beside(right, radius_label, 1))
+    return scene(nodes, scene_height)
+
+
 def labels_ok(spec):
     """Clearance and rendering at every checked width (shared circle checks)."""
     from . import circle_figures
