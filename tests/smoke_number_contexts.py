@@ -31,6 +31,8 @@ CASES = (
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     for generator_id, forms in CASES:
         prefix = generator_id.replace(".", "_") + "_specimen_"
         run(registry, generator_id, forms, generator_id + " specimen", prefix)

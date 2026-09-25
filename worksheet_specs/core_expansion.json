@@ -3,14 +3,14 @@
   "shuffle": true,
   "sections": [
     {
-      "generator_ids": ["number.indices.product"],
+      "generator_ids": ["number.indices.rules"],
       "count": 2,
-      "difficulties": [2, 3]
+      "difficulties": [1, 2]
     },
     {
       "generator_ids": ["algebra.simultaneous.linear"],
       "count": 2,
-      "difficulties": [2, 3]
+      "difficulties": [1, 2]
     },
     {
       "generator_ids": ["number.percentages.reverse"],
@@ -18,7 +18,7 @@
       "difficulties": [2, 3]
     },
     {
-      "generator_ids": ["ratio.combining.three_part"],
+      "generator_ids": ["ratio.simplifying"],
       "count": 2,
       "difficulties": [3, 4]
     },

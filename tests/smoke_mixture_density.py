@@ -12,6 +12,8 @@ from launch_mathsgen import load_engine
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     from mathsgen.core import require
 
     # 200 cm^3 at 0.8 and 300 cm^3 at 1.1 give 460 g in 500 cm^3, so the

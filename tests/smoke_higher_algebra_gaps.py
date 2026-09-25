@@ -62,6 +62,8 @@ def check_width(content, body_style):
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     from mathsgen.pdf import render_pdf, styles
     body = styles()["body"]
     specimen = []

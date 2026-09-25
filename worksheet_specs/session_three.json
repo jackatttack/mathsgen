@@ -8,7 +8,7 @@
       "difficulties": [2, 3]
     },
     {
-      "generator_ids": ["ratio.proportion.inverse"],
+      "generator_ids": ["ratio.proportion.direct"],
       "count": 2,
       "difficulties": [2, 4]
     },
@@ -18,7 +18,7 @@
       "difficulties": [2, 4]
     },
     {
-      "generator_ids": ["number.compound.mixture_mass"],
+      "generator_ids": ["number.compound.mixture_density"],
       "count": 2,
       "difficulties": [1, 3]
     },

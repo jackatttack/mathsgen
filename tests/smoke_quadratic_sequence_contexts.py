@@ -12,6 +12,8 @@ from worded_smoke import run
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     run(registry, "algebra.sequences.quadratic_nth", {
         1: {"equation", "square_grid"},
         2: {"equation", "growing_rectangle"},

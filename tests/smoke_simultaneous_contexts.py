@@ -19,7 +19,9 @@ EXPECTED_FORMS = {
 
 
 def main():
-    run(load_engine(), "algebra.simultaneous.linear", EXPECTED_FORMS,
+    registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    run(source_registry(registry), "algebra.simultaneous.linear", EXPECTED_FORMS,
         "Simultaneous equations specimen", "simultaneous_contexts_specimen_")
 
 

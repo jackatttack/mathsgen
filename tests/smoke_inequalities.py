@@ -76,7 +76,7 @@ def check_inequalities(registry, require):
 
 def check_index_rules(registry, require):
     generator = registry.get("number.indices.rules")
-    from mathsgen.index_rules import exact_value
+    from mathsgen.indices import exact_value
 
     require(exact_value(7, Fraction(0)) == 1, "Zero index failed")
     require(exact_value(5, Fraction(-2)) == Fraction(1, 25), "Negative index failed")
@@ -92,31 +92,20 @@ def check_index_rules(registry, require):
             continue
         raise AssertionError("Irrational root accepted for {}".format(base))
 
+    # Laws of indices v3 has its own full smoke (tests/smoke_indices.py);
+    # here every level only needs to generate and pass independent checks.
     for level in range(1, 5):
         for seed in (5, 66, 777):
             question = generator.generate(seed, level)
             generator.validate_independently(question)
-        for seed in range(60):
-            question = generator.generate(seed, level)
-            if "form" not in question.parameters:
-                break
-        else:
-            raise AssertionError("Bare index form was not generated")
-        value = Fraction(question.answer["value"])
-        reject(generator, question,
-               dict(question.answer, value=str(value + 1)),
-               "Perturbed value accepted")
-        reject(generator, question,
-               dict(question.answer, value=str(1 / value)) if value != 1
-               else dict(question.answer, value="2"),
-               "Reciprocal value accepted")
         print("Level {}: {}".format(level, question.prompt.text))
-        print("Answer: " + question.answer_display.text)
     print(generator.info.title)
 
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     from mathsgen.core import require
 
     check_inequalities(registry, require)

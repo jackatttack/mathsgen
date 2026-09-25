@@ -3,9 +3,9 @@
   "shuffle": false,
   "sections": [
     {
-      "generator_ids": ["algebra.simultaneous.linear_quadratic"],
+      "generator_ids": ["algebra.simultaneous.linear"],
       "count": 4,
-      "difficulties": [1, 2, 3, 4]
+      "difficulties": [3, 4]
     }
   ]
 }

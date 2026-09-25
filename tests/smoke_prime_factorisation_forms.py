@@ -19,6 +19,8 @@ def rejects(checker, question):
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     from mathsgen.core import Content, require
     from mathsgen.prime_factors import PRIME_FORMS
     from mathsgen.worksheets import Worksheet

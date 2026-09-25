@@ -18,6 +18,8 @@ SEEDS = 300
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     generator = registry.get("algebra.simultaneous.linear")
 
     counts = {}

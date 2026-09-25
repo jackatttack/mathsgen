@@ -12,6 +12,8 @@ from launch_mathsgen import load_engine
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     from mathsgen.core import require
     from mathsgen.rounding import (
         fixed_text, round_half_up, round_significant, significant_text,

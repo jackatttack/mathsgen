@@ -3,14 +3,9 @@
   "shuffle": true,
   "sections": [
     {
-      "generator_ids": ["number.standard_form.from_decimal"],
-      "count": 2,
-      "difficulties": [2, 4]
-    },
-    {
-      "generator_ids": ["number.standard_form.to_decimal"],
-      "count": 2,
-      "difficulties": [2, 4]
+      "generator_ids": ["number.standard_form.calculations"],
+      "count": 4,
+      "difficulties": [1, 2]
     },
     {
       "generator_ids": ["data.averages.median_range"],

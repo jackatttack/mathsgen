@@ -5,12 +5,12 @@
     {
       "generator_ids": ["algebra.inequalities.linear"],
       "count": 3,
-      "difficulties": [1, 2, 3]
+      "difficulties": [1, 2]
     },
     {
       "generator_ids": ["algebra.inequalities.linear"],
       "count": 2,
-      "difficulties": [4]
+      "difficulties": [3, 4]
     },
     {
       "generator_ids": ["number.indices.rules"],

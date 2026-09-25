@@ -13,6 +13,8 @@ from launch_mathsgen import load_engine
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     from mathsgen.core import rational_text
     generator = registry.get("algebra.simultaneous.linear_quadratic")
     for level in range(1, 5):

@@ -8,7 +8,7 @@
       "difficulties": [2, 3, 4]
     },
     {
-      "generator_ids": ["ratio.sharing"],
+      "generator_ids": ["ratio.simplifying"],
       "count": 6,
       "difficulties": [2, 3, 4]
     }

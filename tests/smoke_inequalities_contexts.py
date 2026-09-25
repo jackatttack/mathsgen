@@ -19,7 +19,9 @@ EXPECTED_FORMS = {
 
 
 def main():
-    run(load_engine(), "algebra.inequalities.linear", EXPECTED_FORMS,
+    registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    run(source_registry(registry), "algebra.inequalities.linear", EXPECTED_FORMS,
         "Linear inequalities specimen", "inequalities_contexts_specimen_")
 
 

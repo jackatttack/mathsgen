@@ -12,6 +12,8 @@ from launch_mathsgen import load_engine
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     from mathsgen.bounds import lower_bound, upper_bound
     from mathsgen.core import require
     from mathsgen.rounding import round_significant

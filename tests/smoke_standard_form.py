@@ -31,8 +31,11 @@ def main():
     require(standard_form_text("8003", -6) == "8.003 × 10^-6", "Standard form text failed")
 
     specimens, checked = [], 0
-    for gid in ("number.standard_form.from_decimal", "number.standard_form.to_decimal"):
-        generator = registry.get(gid)
+    # The conversion classes are now unregistered sources for the standard
+    # form family (standard_form_family.py), so they are tested directly.
+    from mathsgen.standard_form import WriteAsOrdinaryNumber, WriteInStandardForm
+    for generator in (WriteInStandardForm(), WriteAsOrdinaryNumber()):
+        gid = generator.info.id
         require(generator.info.version == 3, "Expected v3 for " + gid)
         for level in range(1, 5):
             forms, shapes, shown = set(), set(), set()

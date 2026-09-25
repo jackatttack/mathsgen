@@ -11,7 +11,8 @@ Preferred templates for new work:
 - functions.py: several families with structural levels in one module.
 Older relevant generators:
 - percentage_amount.py: backwards construction with exact fractions.
-- missing_mean.py: constrained data generation and symbolic checking.
+- median_range.py: constrained data generation, uniqueness proved by
+  search, and an independent SymPy/statistics check.
 - selection_probability.py: event model and independent enumeration.
 - simplify_ratio.py: units, exact decimals and normalization.
 

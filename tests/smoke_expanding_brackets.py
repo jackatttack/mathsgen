@@ -11,6 +11,8 @@ from launch_mathsgen import load_engine
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     from mathsgen.core import require
     from mathsgen.expanding_brackets import expand, linear_text, polynomial
 

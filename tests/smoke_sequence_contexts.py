@@ -12,6 +12,8 @@ from worded_smoke import run
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     run(registry, "algebra.sequences.linear_nth", {
         1: {"equation", "chair_rows"},
         2: {"equation", "linked_tables"},

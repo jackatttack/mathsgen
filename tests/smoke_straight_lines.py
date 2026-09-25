@@ -17,6 +17,8 @@ from launch_mathsgen import load_engine
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     from mathsgen.core import require, rational_text
     from mathsgen.visuals import drawing_for
     from mathsgen.worksheets import build_worksheet

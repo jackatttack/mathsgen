@@ -33,7 +33,11 @@ CASES = (
 
 
 def main():
+    # Several IDs here are now sources behind dispatch families; the source
+    # registry serves them under their own IDs (mathsgen/dispatch.py).
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     only = set(_mathsgen_test_sys.argv[1:])
     for generator_id, forms in CASES:
         if only and generator_id not in only:

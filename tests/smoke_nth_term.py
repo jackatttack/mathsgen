@@ -12,6 +12,8 @@ from launch_mathsgen import load_engine
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     from mathsgen.core import rational_text
 
     for generator_id in ("algebra.sequences.linear_nth", "algebra.sequences.quadratic_nth"):

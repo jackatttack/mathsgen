@@ -19,6 +19,8 @@ def reject(check, question):
 
 def main():
     registry = load_engine()
+    from mathsgen.catalogue import source_registry
+    registry = source_registry(registry)
     generator = registry.get("ratio.combining.three_part")
     for level in range(1, 5):
         seed = 12345
