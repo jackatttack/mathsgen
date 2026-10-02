@@ -1,26 +1,29 @@
-"""Build workspace: a skill board with the worksheet lying on top of it.
+"""Build workspace: a skill board and a worksheet sheet, one at a time.
 
-This is the whole Build tab:
-- The board (dark, compact, after the snippet keyboard) lists skills the way
-  the app always has: topic headers, then subheadings (topic_browser groups),
-  then one row per skill. Headers fold; search or a grade chip unfolds what
-  matches. Tap a skill row to put it on the sheet (green tick); tap again to
-  take it off.
-- The sheet (light paper) slides over the board from the right. Drag its
-  edge bar, or tap it, to bring it in or tuck it away. Its header holds the
-  title, Generate, the answer-key switch, the PDF style, and the preview
-  actions (Open, Answers, Save) once a preview exists.
-- Each block is a card led by its skill. Tap a card to show or hide its
-  controls. Press and hold a card (or drag its grip bar) to move it.
+This is the whole Build tab. A switch at the top shows either:
+- Skills: topic headers, topic_browser subheadings and one row per skill
+  (dark, compact, after the snippet keyboard). Headers fold; search or a
+  grade chip unfolds what matches. Tap a row to put the skill on the sheet
+  (green tick); tap again to take it off.
+- Sheet: title, Generate, answers, style and the preview actions, then one
+  card per block led by its full skill title. Tap a card to open its
+  controls: drill, applied, count, difficulty, Up / Down / To top,
+  Duplicate, Remove, Hide.
 
-Readability rule: titles are measured and never truncated.
+Stability rules (this replaced a slide-over version that could crash):
+- no animations, timers, custom drag tracking or Objective-C tricks;
+- a control changes only what it owns (+ updates one card and the total);
+- the sheet's cards are rebuilt only when the sheet is shown after a change.
+Recent actions are written to log_path so a crash names its last tap.
 
 The host hears about changes through on_change(blocks, title), settings
 through on_settings(answers, theme_index), Generate through on_generate()
 and preview actions through on_action(name). Data decisions live in
 build_model.py and topic_browser.py; this module draws and reacts.
 """
-from collections import Counter
+import time
+from collections import Counter, deque
+from pathlib import Path
 
 import ui
 
@@ -34,7 +37,6 @@ from .topic_browser import ORDER, groups_for, topic_style
 
 # ------------------------------------------------------------ editable look
 
-# The board borrows the snippet keyboard's palette.
 BOARD = "#161616"
 TILE = "#2C2C2E"
 GROUP_TILE = "#232325"
@@ -43,19 +45,15 @@ SEARCH_FIELD = "#3A3A3C"
 ACTIVE = "#5E5CE6"
 TEXT = "#F2F2F2"
 MUTED = "#B4B4B8"
-# Skills already on the sheet.
 ADDED_TILE = "#17382A"
 ADDED_EDGE = "#34C759"
-# The sheet is paper on top of it.
 PAPER = "#FBFAF6"
 PAPER_EDGE = "#E2DED3"
-GRIP = "#BDB7A7"
 CARD = "#FFFFFF"
 INK = "#1F2430"
 INK_MUTED = "#5B6472"
 DANGER = "#C0392B"
 
-# One colour per app topic, used on the board and on the cards.
 TOPIC_COLOURS = {
     "number": "#2F80ED", "algebra": "#8E6CEF", "ratio": "#56CCF2",
     "geometry": "#F2994A", "probability": "#EB5757", "data": "#27AE60",
@@ -64,14 +62,12 @@ TOPIC_COLOURS = {
 
 RADIUS = 7
 GAP = 6
-HANDLE_WIDTH = 30     # the sheet's edge bar
-OPEN_GAP = 22         # board left visible beside an open sheet
+SWITCH_HEIGHT = 44     # the Skills | Sheet switch strip
 ROW_TITLE_SIZE = 15
 CARD_TITLE_SIZE = 16
-GRIP_HEIGHT = 26      # the grab strip on top of each card
-CARD_ROW = 44         # each row of controls on an open card
-TAP_SLOP = 6          # movement under this still counts as a tap
-HOLD_DELAY = 0.3      # press this long on a card to pick it up
+CARD_TOP = 12          # space above a card's title
+CARD_ROW = 44          # each row of controls on an open card
+MAX_LOG_LINES = 50
 
 
 # ------------------------------------------------------------ small helpers
@@ -107,24 +103,6 @@ def text_height(text, width, size, bold=False):
         return lines * size * 1.3
 
 
-def lift(view):
-    """Give a view a soft shadow so it reads as an object. Optional nicety."""
-    try:
-        from objc_util import CGSize, ObjCInstance
-        layer = ObjCInstance(view).layer()
-        layer.setShadowOpacity_(0.45)
-        layer.setShadowRadius_(16)
-        layer.setShadowOffset_(CGSize(-6, 0))
-        layer.setMasksToBounds_(False)
-    except Exception:
-        pass
-
-
-def point_in(touch, view, target):
-    """A touch location in another view's coordinates (stable while dragging)."""
-    return ui.convert_point(touch.location, view, target)
-
-
 def inside(view, touch):
     x, y = touch.location
     return 0 <= x <= view.width and 0 <= y <= view.height
@@ -146,14 +124,34 @@ def chip_width(title):
     return len(title) * 8 + 26
 
 
+class ActionLog:
+    """The last MAX_LOG_LINES actions, rewritten to a small file after each,
+    so that if Pythonista ever crashes the file shows what was tapped last."""
+
+    def __init__(self, path):
+        self.path = Path(path) if path else None
+        self.lines = deque(maxlen=MAX_LOG_LINES)
+
+    def add(self, text):
+        if self.path is None:
+            return
+        now = time.time()
+        stamp = time.strftime("%H:%M:%S", time.localtime(now))
+        self.lines.append("{}.{:03d} {}".format(stamp, int(now % 1 * 1000), text))
+        try:
+            self.path.write_text("\n".join(self.lines) + "\n", encoding="utf-8")
+        except Exception:
+            pass
+
+
 # ------------------------------------------------------------ workspace
 
 class Workspace(ui.View):
-    """The board with the sheet on top. See the module docstring for hooks."""
+    """The Skills | Sheet switch over the board or the sheet."""
 
     def __init__(self, registry, blocks, title, on_change, answers=True,
                  theme_index=0, theme_names=("Calm", "Classic", "Contrast"),
-                 on_settings=None, on_generate=None, on_action=None):
+                 on_settings=None, on_generate=None, on_action=None, log_path=None):
         super().__init__()
         self.background_color = BOARD
         self.registry = registry
@@ -164,39 +162,62 @@ class Workspace(ui.View):
         self.on_settings = on_settings
         self.on_generate = on_generate
         self.on_action = on_action
+        self.log = ActionLog(log_path)
         self.load_error = ""
         try:
             sections = library_sections(registry, load_level_tags(registry), self.drill_levels)
         except Exception as error:
             sections = []
             self.load_error = "Skill details unavailable: " + str(error)
-        # Spec codes, years, grades and search text for each skill.
         self.entries = {entry["generator_id"]: entry
                         for _, entries in sections for entry in entries}
-        # The app's own topic -> subheading grouping.
         self.groups = groups_for(list(self.infos.values()))
         present = {group["topic"] for group in self.groups}
         self.topics = [topic for topic in ORDER if topic in present] + sorted(present - set(ORDER))
-        self.sheet_open = bool(self.blocks)
+        self.showing_sheet = bool(self.blocks)
+        self.sheet_dirty = True
+        self.switch = ui.SegmentedControl()
+        self.switch.tint_color = ACTIVE
+        self.switch.action = self.switch_view
         self.board = SkillBoard(self)
-        self.sheet = SheetDrawer(self, title, answers, theme_index, theme_names)
-        self.add_subview(self.board)
-        self.add_subview(self.sheet)
+        self.sheet = SheetView(self, title, answers, theme_index, theme_names)
+        for view in (self.switch, self.board, self.sheet):
+            self.add_subview(view)
+        self.update_switch()
+        self.log.add("open Build with {} blocks".format(len(self.blocks)))
 
     def layout(self):
-        self.board.frame = (0, 0, self.width - HANDLE_WIDTH, self.height)
-        self.sheet.frame = self.sheet_frame(self.sheet_open)
+        self.switch.frame = (12, 6, self.width - 24, 32)
+        body = (0, SWITCH_HEIGHT, self.width, max(100, self.height - SWITCH_HEIGHT))
+        self.board.frame = body
+        self.sheet.frame = body
+        self.show_sheet(self.showing_sheet, logged=False)
 
-    def sheet_frame(self, opened):
-        x = OPEN_GAP if opened else self.width - HANDLE_WIDTH
-        return (x, 0, self.width - OPEN_GAP, self.height)
+    # -------------------------------------------------- which view
 
-    def set_sheet_open(self, opened):
-        self.sheet_open = opened
+    def switch_view(self, sender):
+        self.show_sheet(sender.selected_index == 1)
 
-        def slide():
-            self.sheet.frame = self.sheet_frame(opened)
-        ui.animate(slide, 0.25)
+    def show_sheet(self, showing, logged=True):
+        self.showing_sheet = showing
+        if showing and self.sheet_dirty:
+            self.sheet.rebuild()
+        self.board.hidden = showing
+        self.sheet.hidden = not showing
+        self.update_switch()
+        if logged:
+            self.log.add("show " + ("sheet" if showing else "skills"))
+
+    def update_switch(self):
+        """Relabel the switch only when its text or choice actually changes."""
+        labels = ["Skills", "Sheet ({})".format(len(self.blocks))]
+        if list(self.switch.segments) != labels:
+            self.switch.segments = labels
+        index = 1 if self.showing_sheet else 0
+        if self.switch.selected_index != index:
+            self.switch.selected_index = index
+
+    # -------------------------------------------------- data
 
     def colour_for(self, generator_id):
         info = self.infos.get(generator_id)
@@ -214,14 +235,20 @@ class Workspace(ui.View):
         else:
             self.blocks.append(default_block(self.infos[generator_id]))
             added = True
-        self.sheet.rebuild()
-        self.sheet.handle.pulse()
-        self.changed()
+        self.log.add(("add " if added else "remove ") + generator_id)
+        self.structure_changed()
         return added
 
-    def changed(self):
-        """Refresh the board's green marks and report the sheet to the host."""
+    def structure_changed(self):
+        """Blocks were added, removed or moved: marks, switch label, host."""
+        self.sheet_dirty = True
+        if self.showing_sheet:
+            self.sheet.rebuild()
         self.board.mark_tiles()
+        self.update_switch()
+        self.notify()
+
+    def notify(self):
         self.on_change(list(self.blocks), self.sheet.title_field.text)
 
     def sync_results(self, state):
@@ -238,13 +265,12 @@ class SkillBoard(ui.View):
         super().__init__()
         self.workspace = workspace
         self.background_color = BOARD
-        self.topic = None         # None shows every topic
-        self.grades = None        # None shows every grade
+        self.topic = None
+        self.grades = None
         self.open_topics = set()
         self.open_groups = set()
         self.rows = []
         self.headers = []
-        self.heading = text_label("Skills", 24, TEXT, bold=True)
         self.fold_button = flat_button("Expand all", self.toggle_fold, TILE, TEXT, 13)
         self.search = ui.TextField()
         self.search.background_color = SEARCH_FIELD
@@ -270,7 +296,7 @@ class SkillBoard(ui.View):
             13, MUTED)
         self.grid = ui.ScrollView()
         self.grid.background_color = BOARD
-        for view in (self.heading, self.fold_button, self.search, self.placeholder,
+        for view in (self.fold_button, self.search, self.placeholder,
                      self.topic_strip, self.grade_strip, self.status, self.grid):
             self.add_subview(view)
 
@@ -287,20 +313,19 @@ class SkillBoard(ui.View):
 
     def layout(self):
         left, width = 12, self.width - 24
-        self.heading.frame = (left, 8, width - 120, 32)
-        self.fold_button.frame = (left + width - 110, 8, 110, 32)
-        self.search.frame = (left, 46, width, 38)
-        self.placeholder.frame = (left + 12, 46, width - 24, 38)
-        for strip, chips, y in ((self.topic_strip, self.topic_chips, 92),
-                                (self.grade_strip, self.grade_chips, 130)):
+        self.search.frame = (left, 4, width - 118, 38)
+        self.placeholder.frame = (left + 12, 4, width - 142, 38)
+        self.fold_button.frame = (left + width - 110, 4, 110, 38)
+        for strip, chips, y in ((self.topic_strip, self.topic_chips, 50),
+                                (self.grade_strip, self.grade_chips, 88)):
             x = left
             for chip in chips:
                 chip.frame = (x, 0, chip_width(chip.title), 32)
                 x += chip_width(chip.title) + GAP
             strip.frame = (0, y, self.width, 32)
             strip.content_size = (x + left, 32)
-        self.status.frame = (left, 168, width, 18)
-        self.grid.frame = (0, 190, self.width, max(100, self.height - 190))
+        self.status.frame = (left, 126, width, 18)
+        self.grid.frame = (0, 148, self.width, max(100, self.height - 148))
         self.fill_grid()
 
     # -------------------------------------------------- filters
@@ -382,7 +407,6 @@ class SkillBoard(ui.View):
                 continue
             for group, shown in groups:
                 if len(group["infos"]) == 1:
-                    # A one-skill group needs no subheading.
                     y = self.add_row(shown[0], colour, left + 12, y, width - 12)
                     continue
                 group_open = filtering or group["key"] in self.open_groups
@@ -443,11 +467,7 @@ class SkillBoard(ui.View):
 
     def row_tapped(self, row):
         added = self.workspace.toggle_skill(row.entry["generator_id"])
-        if added:
-            row.flash()
-            self.status.text = "Added {}.".format(row.entry["title"])
-        else:
-            self.status.text = "Removed {}.".format(row.entry["title"])
+        self.status.text = ("Added {}." if added else "Removed {}.").format(row.entry["title"])
 
 
 class HeaderRow(ui.View):
@@ -504,7 +524,6 @@ class SkillRow(ui.View):
         super().__init__()
         self.board = board
         self.entry = entry
-        self.colour = colour
         self.added = 0
         self.corner_radius = RADIUS
         self.stripe = ui.View()
@@ -550,25 +569,16 @@ class SkillRow(ui.View):
         if inside(self, touch):
             self.board.row_tapped(self)
 
-    def flash(self):
-        self.background_color = self.colour
-
-        def settle():
-            self.background_color = self.resting_colour()
-        ui.animate(settle, 0.45)
-
 
 # ------------------------------------------------------------ the sheet
 
-class SheetDrawer(ui.View):
-    """The worksheet as paper: edge bar, header tools and block cards."""
+class SheetView(ui.View):
+    """The worksheet: header tools, then one card per block."""
 
     def __init__(self, workspace, title, answers, theme_index, theme_names):
         super().__init__()
         self.workspace = workspace
         self.background_color = PAPER
-        lift(self)
-        self.handle = EdgeHandle(self)
         self.title_field = ui.TextField()
         self.title_field.text = title
         self.title_field.placeholder = "Worksheet title"
@@ -588,31 +598,24 @@ class SheetDrawer(ui.View):
         self.style_control.selected_index = theme_index
         self.style_control.tint_color = ACTIVE
         self.style_control.action = self.change_settings
-        # Preview results: a status line and three small actions.
         self.result_status = text_label("", 12, INK_MUTED)
         self.open_button = self.result_button("Open", "open_questions")
         self.answers_button = self.result_button("Answers", "open_answers")
         self.save_button = self.result_button("Save", "save")
         self.scroll = ui.ScrollView()
         self.scroll.background_color = PAPER
-        # Cards get touches at once, so a drag can start before scrolling does.
-        self.scroll.delays_content_touches = False
         self.empty = text_label(
-            "Tap skills on the board to add them here.\n"
-            "Tap a card to edit it. Press and hold a card to move it.",
-            14, INK_MUTED, lines=0)
+            "No blocks yet. Switch to Skills and tap skills to add them.\n"
+            "Tap a card to edit it or move it.", 14, INK_MUTED, lines=0)
         self.empty.alignment = ui.ALIGN_CENTER
         self.cards = []
-        self.dragging = None
-        self.last_drag_y = 0
         self.results_shown = False
-        for view in (self.handle, self.title_field, self.generate_button, self.summary,
+        for view in (self.title_field, self.generate_button, self.summary,
                      self.answers_label, self.answers_switch, self.style_control,
                      self.result_status, self.open_button, self.answers_button,
                      self.save_button, self.scroll, self.empty):
             self.add_subview(view)
         self.sync_results({})
-        self.rebuild()
 
     def result_button(self, title, name):
         button = flat_button(title, self.run_action, CARD, ACTIVE, 13)
@@ -622,46 +625,47 @@ class SheetDrawer(ui.View):
         return button
 
     def layout(self):
-        self.handle.frame = (0, 0, HANDLE_WIDTH, self.height)
-        left = HANDLE_WIDTH + 12
-        width = self.width - left - 12
-        self.title_field.frame = (left, 8, width - 112, 36)
-        self.generate_button.frame = (left + width - 104, 8, 104, 36)
-        self.summary.frame = (left, 46, width, 18)
-        self.answers_label.frame = (left, 70, 70, 31)
-        self.answers_switch.frame = (left + 72, 70, 51, 31)
+        left, width = 12, self.width - 24
+        self.title_field.frame = (left, 6, width - 112, 36)
+        self.generate_button.frame = (left + width - 104, 6, 104, 36)
+        self.summary.frame = (left, 44, width, 18)
+        self.answers_label.frame = (left, 68, 70, 31)
+        self.answers_switch.frame = (left + 72, 68, 51, 31)
         style_width = min(210, width - 132)
-        self.style_control.frame = (left + width - style_width, 70, style_width, 30)
-        top = 110
+        self.style_control.frame = (left + width - style_width, 68, style_width, 30)
+        top = 108
         if self.results_shown:
             button_width = 72
             right = left + width
-            self.save_button.frame = (right - button_width, 108, button_width, 28)
-            self.answers_button.frame = (right - 2 * button_width - 6, 108, button_width, 28)
-            self.open_button.frame = (right - 3 * button_width - 12, 108, button_width, 28)
-            self.result_status.frame = (left, 108, width - 3 * button_width - 18, 28)
-            top = 144
-        self.scroll.frame = (HANDLE_WIDTH, top, self.width - HANDLE_WIDTH,
-                             max(100, self.height - top))
-        self.empty.frame = (left, top + 50, width, 60)
+            self.save_button.frame = (right - button_width, 106, button_width, 28)
+            self.answers_button.frame = (right - 2 * button_width - 6, 106, button_width, 28)
+            self.open_button.frame = (right - 3 * button_width - 12, 106, button_width, 28)
+            self.result_status.frame = (left, 106, width - 3 * button_width - 18, 28)
+            top = 142
+        self.scroll.frame = (0, top, self.width, max(100, self.height - top))
+        self.empty.frame = (left, top + 40, width, 60)
         self.place_cards()
 
     # -------------------------------------------------- header
 
     def textfield_did_end_editing(self, textfield):
-        self.workspace.changed()
+        self.workspace.log.add("title")
+        self.workspace.notify()
 
     def change_settings(self, sender):
+        self.workspace.log.add("settings")
         if self.workspace.on_settings:
             self.workspace.on_settings(bool(self.answers_switch.value),
                                        self.style_control.selected_index)
 
     def generate(self, sender):
         self.title_field.end_editing()
+        self.workspace.log.add("generate")
         if self.workspace.on_generate:
             self.workspace.on_generate()
 
     def run_action(self, sender):
+        self.workspace.log.add("action " + sender.name)
         if self.workspace.on_action:
             self.workspace.on_action(sender.name)
 
@@ -691,10 +695,10 @@ class SheetDrawer(ui.View):
     # -------------------------------------------------- cards
 
     def card_width(self):
-        return max(100, self.scroll.width - 22)
+        return max(100, self.scroll.width - 24)
 
     def rebuild(self):
-        """Recreate one card per block, keeping which cards were open."""
+        """One card per block, keeping which cards were open."""
         opened = {id(card.block) for card in self.cards if card.opened}
         for card in self.cards:
             self.scroll.remove_subview(card)
@@ -702,191 +706,85 @@ class SheetDrawer(ui.View):
                       for block in self.workspace.blocks]
         for card in self.cards:
             self.scroll.add_subview(card)
+        self.workspace.sheet_dirty = False
         self.place_cards()
         self.update_summary()
 
-    def place_cards(self, skip=None):
-        """Stack the cards in order; skip leaves a dragged card where it is."""
+    def place_cards(self):
+        """Stack the cards in order and tell each where it sits."""
         width = self.card_width()
         y = 8
+        last = len(self.cards)
         for number, card in enumerate(self.cards, 1):
             card.number = number
+            card.is_first = number == 1
+            card.is_last = number == last
             card.measure_width = width
             card.refresh()
-            if card is not skip:
-                card.frame = (11, y, width, card.height_needed())
+            card.frame = (12, y, width, card.height_needed())
             y += card.height_needed() + GAP
         self.scroll.content_size = (self.scroll.width, y + 80)
         self.empty.hidden = bool(self.cards)
-
-    def animate_layout(self, skip=None):
-        ui.animate(lambda: self.place_cards(skip), 0.2)
 
     def update_summary(self):
         blocks = self.workspace.blocks
         total = sum(block_size(block) for block in blocks)
         self.summary.text = "{} block{} · {} questions".format(
             len(blocks), "" if len(blocks) == 1 else "s", total)
-        self.handle.set_count(len(blocks))
         if not self.generate_button.title.startswith("Working"):
             self.generate_button.enabled = bool(blocks)
             self.generate_button.alpha = 1 if blocks else 0.45
 
     def toggle_card(self, card):
         card.opened = not card.opened
-        self.animate_layout()
+        self.workspace.log.add(("open " if card.opened else "close ") + card.info.id)
+        self.place_cards()
+
+    def move_card(self, card, where):
+        """where: 'up', 'down' or 'top'. Keeps the card open after moving."""
+        index = self.cards.index(card)
+        target = {"up": index - 1, "down": index + 1, "top": 0}[where]
+        if target < 0 or target >= len(self.cards) or target == index:
+            return
+        self.cards.insert(target, self.cards.pop(index))
+        blocks = self.workspace.blocks
+        blocks.insert(target, blocks.pop(index))
+        self.workspace.log.add("move {} {}".format(where, card.info.id))
+        self.place_cards()
+        self.workspace.board.mark_tiles()
+        self.workspace.notify()
 
     def duplicate_card(self, card):
         index = self.cards.index(card)
         copy = dict(card.block, levels=list(card.block["levels"]))
         self.workspace.blocks.insert(index + 1, copy)
-        self.rebuild()
-        self.workspace.changed()
+        self.workspace.log.add("duplicate " + card.info.id)
+        self.workspace.structure_changed()
 
     def remove_card(self, card):
         del self.workspace.blocks[self.cards.index(card)]
-        self.rebuild()
-        self.workspace.changed()
+        self.workspace.log.add("remove card " + card.info.id)
+        self.workspace.structure_changed()
 
-    def card_changed(self):
+    def card_changed(self, card, what):
+        """A setting inside one card changed: that card, the total, the host."""
+        self.workspace.log.add("{} {}".format(what, card.info.id))
         self.update_summary()
-        self.workspace.changed()
-
-    # -------------------------------------------------- moving a card
-
-    def begin_drag(self, card, point):
-        self.dragging = card
-        self.last_drag_y = point[1]
-        card.bring_to_front()
-        card.alpha = 0.9
-        card.border_color = ACTIVE
-        card.border_width = 2
-        self.scroll.scroll_enabled = False
-
-    def drag_to(self, card, point):
-        """Follow the finger; when the card passes a neighbour, swap slots."""
-        card.y += point[1] - self.last_drag_y
-        self.last_drag_y = point[1]
-        centre = card.y + card.height / 2
-        target, y = 0, 8
-        for other in self.cards:
-            if other is card:
-                continue
-            if centre > y + other.height_needed() / 2:
-                target += 1
-            y += other.height_needed() + GAP
-        if target != self.cards.index(card):
-            self.cards.remove(card)
-            self.cards.insert(target, card)
-            self.animate_layout(skip=card)
-
-    def end_drag(self, card):
-        self.dragging = None
-        card.alpha = 1
-        self.scroll.scroll_enabled = True
-        self.workspace.blocks[:] = [each.block for each in self.cards]
-        self.animate_layout()
-        self.workspace.changed()
-
-
-class EdgeHandle(ui.View):
-    """The sheet's left edge bar: drag to slide the sheet, tap to toggle it."""
-
-    def __init__(self, drawer):
-        super().__init__()
-        self.drawer = drawer
-        self.background_color = PAPER_EDGE
-        self.pill = ui.View()
-        self.pill.background_color = GRIP
-        self.pill.corner_radius = 2.5
-        self.pill.touch_enabled = False
-        self.count = text_label("0", 14, INK, bold=True)
-        self.count.alignment = ui.ALIGN_CENTER
-        self.add_subview(self.pill)
-        self.add_subview(self.count)
-        self.start_x = self.last_x = 0
-
-    def layout(self):
-        self.pill.frame = (self.width / 2 - 2.5, self.height / 2 - 24, 5, 48)
-        self.count.frame = (0, self.height / 2 + 32, self.width, 20)
-
-    def set_count(self, number):
-        self.count.text = str(number)
-
-    def pulse(self):
-        self.count.text_color = ACTIVE
-
-        def settle():
-            self.count.text_color = INK
-        ui.delay(settle, 0.6)
-
-    def touch_began(self, touch):
-        x = point_in(touch, self, self.drawer.workspace)[0]
-        self.start_x = self.last_x = x
-
-    def touch_moved(self, touch):
-        workspace = self.drawer.workspace
-        x = point_in(touch, self, workspace)[0]
-        dx, self.last_x = x - self.last_x, x
-        lowest, highest = OPEN_GAP, workspace.width - HANDLE_WIDTH
-        self.drawer.x = max(lowest, min(highest, self.drawer.x + dx))
-
-    def touch_ended(self, touch):
-        workspace = self.drawer.workspace
-        x = point_in(touch, self, workspace)[0]
-        if abs(x - self.start_x) < TAP_SLOP:
-            workspace.set_sheet_open(not workspace.sheet_open)
-        else:
-            middle = (OPEN_GAP + workspace.width - HANDLE_WIDTH) / 2
-            workspace.set_sheet_open(self.drawer.x < middle)
-
-
-class GripBar(ui.View):
-    """The strip on top of a card: press and drag it to move the card at once."""
-
-    def __init__(self, card):
-        super().__init__()
-        self.card = card
-        self.pill = ui.View()
-        self.pill.background_color = GRIP
-        self.pill.corner_radius = 3
-        self.pill.touch_enabled = False
-        self.add_subview(self.pill)
-
-    def layout(self):
-        self.pill.frame = (self.width / 2 - 24, 10, 48, 6)
-
-    def touch_began(self, touch):
-        drawer = self.card.drawer
-        drawer.begin_drag(self.card, point_in(touch, self, drawer.scroll))
-
-    def touch_moved(self, touch):
-        drawer = self.card.drawer
-        drawer.drag_to(self.card, point_in(touch, self, drawer.scroll))
-
-    def touch_ended(self, touch):
-        self.card.drawer.end_drag(self.card)
+        self.workspace.notify()
 
 
 class BlockCard(ui.View):
-    """One block, led by its full skill title. Closed: a summary. Open: controls.
+    """One block, led by its full skill title. Tap to show or hide controls."""
 
-    Tap toggles the controls. Press and hold for HOLD_DELAY picks the card up
-    to move it; moving before then lets the sheet scroll instead.
-    """
-
-    def __init__(self, drawer, block, opened=False):
+    def __init__(self, sheet, block, opened=False):
         super().__init__()
-        self.drawer = drawer
+        self.sheet = sheet
         self.block = block
         self.opened = opened
         self.number = 0
+        self.is_first = self.is_last = False
         self.measure_width = 300
-        self.press_token = None
-        self.press_point = (0, 0)
-        self.press_moved = False
-        self.lifted = False
-        workspace = drawer.workspace
+        workspace = sheet.workspace
         self.info = workspace.infos[block["generator_id"]]
         self.colour = workspace.colour_for(block["generator_id"])
         self.has_drill = self.info.id in workspace.drill_levels
@@ -895,7 +793,6 @@ class BlockCard(ui.View):
         self.stripe = ui.View()
         self.stripe.background_color = self.colour
         self.stripe.touch_enabled = False
-        self.grip = GripBar(self)
         self.badge = text_label("", 13, "white", bold=True)
         self.badge.alignment = ui.ALIGN_CENTER
         self.badge.background_color = self.colour
@@ -926,6 +823,12 @@ class BlockCard(ui.View):
             pill.name = str(level)
             pill.border_width = 1
             self.level_pills.append(pill)
+        self.up_button = flat_button("▲ Up", self.move, PAPER, INK, 13)
+        self.up_button.name = "up"
+        self.down_button = flat_button("▼ Down", self.move, PAPER, INK, 13)
+        self.down_button.name = "down"
+        self.top_button = flat_button("To top", self.move, PAPER, INK, 13)
+        self.top_button.name = "top"
         self.duplicate_button = flat_button("Duplicate", self.duplicate, PAPER, INK, 13)
         self.remove_button = flat_button("Remove", self.remove, PAPER, DANGER, 13)
         self.hide_button = flat_button("Hide", self.hide, self.colour, "white", 13)
@@ -933,26 +836,26 @@ class BlockCard(ui.View):
             "drill": [self.drill_label, self.drill_switch, self.apply_label, self.apply_switch],
             "count": [self.count_label, self.minus, self.count_value, self.plus],
             "levels": [self.level_label, *self.level_pills],
+            "move": [self.up_button, self.down_button, self.top_button],
             "buttons": [self.duplicate_button, self.remove_button, self.hide_button],
         }
-        for view in (self.stripe, self.grip, self.badge, self.heading, self.summary, self.hint):
+        for view in (self.stripe, self.badge, self.heading, self.summary, self.hint):
             self.add_subview(view)
         for views in self.row_views.values():
             for view in views:
                 self.add_subview(view)
-        self.refresh()
 
     # -------------------------------------------------- size
 
     def rows(self):
         """Control rows shown when open; skills without drill skip that row."""
-        return (["drill"] if self.has_drill else []) + ["count", "levels", "buttons"]
+        return (["drill"] if self.has_drill else []) + ["count", "levels", "move", "buttons"]
 
     def title_height(self, width):
         return text_height(self.info.title, width - 112, CARD_TITLE_SIZE, True)
 
     def closed_height(self, width):
-        return GRIP_HEIGHT + 4 + self.title_height(width) + 4 + 20 + 12
+        return CARD_TOP + self.title_height(width) + 4 + 20 + 12
 
     def height_needed(self):
         height = self.closed_height(self.measure_width)
@@ -963,13 +866,12 @@ class BlockCard(ui.View):
     def layout(self):
         width = self.width
         title = self.title_height(width)
-        top = GRIP_HEIGHT + 4
         self.stripe.frame = (0, 0, 5, self.height)
-        self.grip.frame = (5, 0, width - 5, GRIP_HEIGHT)
-        self.badge.frame = (16, top + 1, 26, 24)
-        self.heading.frame = (50, top, width - 112, title)
-        self.hint.frame = (width - 60, top + 2, 48, 22)
-        self.summary.frame = (50, top + title + 4, width - 62, 20)
+        self.badge.frame = (16, CARD_TOP + 1, 26, 24)
+        self.heading.frame = (50, CARD_TOP, width - 112, title)
+        self.hint.frame = (width - 60, CARD_TOP + 2, 48, 22)
+        self.summary.frame = (50, CARD_TOP + title + 4, width - 62, 20)
+        third = (width - 32 - 16) / 3
         y = self.closed_height(width)
         for row in self.rows():
             if row == "drill":
@@ -987,37 +889,37 @@ class BlockCard(ui.View):
                 for index, pill in enumerate(self.level_pills):
                     pill.frame = (width - 12 - 4 * 46 + index * 46, y, 40, 34)
             else:
-                third = (width - 32 - 16) / 3
-                self.duplicate_button.frame = (16, y, third, 34)
-                self.remove_button.frame = (16 + third + 8, y, third, 34)
-                self.hide_button.frame = (16 + 2 * (third + 8), y, third, 34)
+                trio = self.row_views[row]
+                for index, button in enumerate(trio):
+                    button.frame = (16 + index * (third + 8), y, third, 34)
             y += CARD_ROW
 
     # -------------------------------------------------- show
 
     def refresh(self):
         """Show the block's settings and whether the card is open."""
-        workspace = self.drawer.workspace
         block = self.block
-        drill = block["kind"] == "drill"
         self.badge.text = str(self.number or "")
         self.summary.text = block_summary(block)
         self.hint.text = "Hide" if self.opened else "Edit"
-        if self.drawer.dragging is not self:
-            self.border_color = self.colour if self.opened else PAPER_EDGE
-            self.border_width = 2 if self.opened else 1
+        self.border_color = self.colour if self.opened else PAPER_EDGE
+        self.border_width = 2 if self.opened else 1
         shown = set(self.rows()) if self.opened else set()
         for row, views in self.row_views.items():
             for view in views:
                 view.hidden = row not in shown
-        if not self.opened:
-            return
+        if self.opened:
+            self.show_controls()
+
+    def show_controls(self):
+        block = self.block
+        drill = block["kind"] == "drill"
         self.apply_label.hidden = self.apply_switch.hidden = not drill
         self.drill_switch.value = drill
         self.apply_switch.value = bool(block.get("apply", True))
         self.count_label.text = "Items per level" if drill else "Questions"
         self.count_value.text = str(block["count"])
-        supported = supported_levels(self.info, workspace.drill_levels, block["kind"])
+        supported = supported_levels(self.info, self.sheet.workspace.drill_levels, block["kind"])
         for pill in self.level_pills:
             level = int(pill.name)
             chosen = level in block["levels"]
@@ -1026,64 +928,47 @@ class BlockCard(ui.View):
             pill.background_color = self.colour if chosen else PAPER
             pill.tint_color = "white" if chosen else INK
             pill.border_color = self.colour if chosen else PAPER_EDGE
+        for button, allowed in ((self.up_button, not self.is_first),
+                                (self.top_button, not self.is_first),
+                                (self.down_button, not self.is_last)):
+            button.enabled = allowed
+            button.alpha = 1 if allowed else 0.35
 
-    def changed(self):
-        self.refresh()
-        self.drawer.card_changed()
-
-    # -------------------------------------------------- touch: tap or hold
+    def settings_changed(self, what):
+        """Only this card's labels change; the sheet updates its total."""
+        self.summary.text = block_summary(self.block)
+        self.show_controls()
+        self.sheet.card_changed(self, what)
 
     def touch_began(self, touch):
-        token = object()
-        self.press_token = token
-        self.press_point = point_in(touch, self, self.drawer.scroll)
-        self.press_moved = False
-        self.lifted = False
-        ui.delay(lambda: self.lift_if_held(token), HOLD_DELAY)
-
-    def lift_if_held(self, token):
-        """Pick the card up if the same press is still down and still."""
-        if token is self.press_token and not self.press_moved and not self.lifted:
-            self.lifted = True
-            self.drawer.begin_drag(self, self.press_point)
-
-    def touch_moved(self, touch):
-        point = point_in(touch, self, self.drawer.scroll)
-        if self.lifted:
-            self.drawer.drag_to(self, point)
-        elif (abs(point[0] - self.press_point[0]) > TAP_SLOP
-              or abs(point[1] - self.press_point[1]) > TAP_SLOP):
-            self.press_moved = True
+        # Nothing happens on press; defined so taps are always delivered.
+        pass
 
     def touch_ended(self, touch):
-        lifted, moved = self.lifted, self.press_moved
-        self.press_token = None
-        self.lifted = False
-        if lifted:
-            self.drawer.end_drag(self)
-        elif not moved and self.drawer.dragging is None:
-            self.drawer.toggle_card(self)
+        # Taps on the card body (not its buttons) open or close it.
+        if inside(self, touch):
+            self.sheet.toggle_card(self)
 
     # -------------------------------------------------- controls
 
     def change_drill(self, sender):
         block = self.block
         kind = "drill" if sender.value else "questions"
-        supported = supported_levels(self.info, self.drawer.workspace.drill_levels, kind)
+        supported = supported_levels(self.info, self.sheet.workspace.drill_levels, kind)
         block["kind"] = kind
         block["levels"] = [level for level in block["levels"] if level in supported] or list(supported)
         block["count"] = min(block["count"], maximum_count(kind))
-        self.changed()
+        self.settings_changed("drill on" if sender.value else "drill off")
 
     def change_apply(self, sender):
         self.block["apply"] = bool(sender.value)
-        self.changed()
+        self.settings_changed("applied")
 
     def change_count(self, sender):
         block = self.block
         block["count"] = max(1, min(maximum_count(block["kind"]),
                                     block["count"] + int(sender.name)))
-        self.changed()
+        self.settings_changed("count {}".format(block["count"]))
 
     def toggle_level(self, sender):
         level = int(sender.name)
@@ -1094,13 +979,16 @@ class BlockCard(ui.View):
         else:
             levels.add(level)
         self.block["levels"] = sorted(levels)
-        self.changed()
+        self.settings_changed("levels " + ",".join(map(str, self.block["levels"])))
+
+    def move(self, sender):
+        self.sheet.move_card(self, sender.name)
 
     def duplicate(self, sender):
-        self.drawer.duplicate_card(self)
+        self.sheet.duplicate_card(self)
 
     def remove(self, sender):
-        self.drawer.remove_card(self)
+        self.sheet.remove_card(self)
 
     def hide(self, sender):
-        self.drawer.toggle_card(self)
+        self.sheet.toggle_card(self)

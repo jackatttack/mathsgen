@@ -982,14 +982,17 @@ class WorksheetBuilder(ui.View):
                 on_settings=self.workspace_settings,
                 on_generate=lambda: self.generate(None),
                 on_action=self.workspace_action,
+                log_path=self.state_path.parent / "build_actions.log",
             )
             self.add_subview(self.workspace)
+            self.workspace.bring_to_front()
+        elif self.workspace.hidden:
+            self.workspace.bring_to_front()
         self.scroll.content_offset = (0, 0)
         top = self.mode_control.y + self.mode_control.height + 8
         # The footer is hidden in Build, so the workspace runs to the bottom.
         self.workspace.frame = (0, top, self.width, max(100, self.height - top))
         self.workspace.hidden = False
-        self.workspace.bring_to_front()
         ready = self.report is not None and not self.busy
         self.workspace.sync_results({
             "busy": self.busy,
@@ -1000,12 +1003,21 @@ class WorksheetBuilder(ui.View):
         })
 
     def workspace_changed(self, blocks, title):
-        """Every sheet change: keep it, save it, update the footer."""
+        """Keep each sheet change and save it at once, inside the tap itself.
+
+        No timers: a delayed save crashed Pythonista when two taps came close
+        together. No redraw of the whole maker either: the Build footer is
+        hidden. The action log brackets the save so a crash shows where it was.
+        """
         self.build_blocks = blocks
         if title and title.strip():
             self.title_field.text = title.strip()
+        log = self.workspace.log if self.workspace is not None else None
+        if log is not None:
+            log.add("save start")
         self.save()
-        self.refresh()
+        if log is not None:
+            log.add("save done")
 
     def workspace_settings(self, answers, theme_index):
         self.answers.value = answers
