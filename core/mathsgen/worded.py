@@ -54,6 +54,9 @@ def generate(generator, context, contexts, marks, working_lines):
         worked_solution=(), marks=marks[level], tags=info.tags,
         layout_hint=LayoutHint(working_lines=working_lines[level]),
         parameters=p,
+        # Optional diagrams: parts may supply question_visuals/answer_visuals.
+        question_visuals=tuple(parts.get("question_visuals", ())),
+        answer_visuals=tuple(parts.get("answer_visuals", ())),
     )
     generator.validate(q)
     return q
@@ -73,6 +76,10 @@ def validate(generator, q, contexts, marks, working_lines):
     require(q.prompt == parts["prompt"], "Prompt mismatch")
     require(q.answer == parts["answer"], "Answer mismatch")
     require(q.answer_display == parts["answer_display"], "Displayed answer mismatch")
+    require(list(q.question_visuals) == list(parts.get("question_visuals", ())),
+            "Question visual mismatch")
+    require(list(q.answer_visuals) == list(parts.get("answer_visuals", ())),
+            "Answer visual mismatch")
     require(q.marks == marks[q.difficulty], "Marks mismatch")
     require(q.layout_hint.working_lines == working_lines[q.difficulty],
             "Working space mismatch")

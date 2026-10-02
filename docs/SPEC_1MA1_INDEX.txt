@@ -1,0 +1,128 @@
+EDEXCEL GCSE (9-1) MATHEMATICS 1MA1 - CONTENT CODE INDEX
+Source: Pearson Edexcel 1MA1 specification, Issue 2 (June 2015)
+https://qualifications.pearson.com/content/dam/pdf/GCSE/mathematics/2015/specification-and-sample-assesment/gcse-maths-2015-specification.pdf
+
+Purpose: reference codes for tagging mathsgen skills. Labels are short
+paraphrases, not specification text; read the PDF for exact wording.
+
+Tier key
+  F    in the Foundation list (Higher also assessed on it)
+  F+H  in both lists; the Higher list extends it (extension after "H:")
+  H    Higher only
+Caveat: the extracted PDF loses underline styling, so "harder Foundation"
+content is not distinguished from basic Foundation content.
+
+Year groups are NOT in the specification. The spec assumes the DfE KS3
+programme of study. Any year tagging in mathsgen is our own layer.
+
+NUMBER
+N1   F    ordering numbers; inequality symbols
+N2   F    four operations incl. negatives, fractions, mixed numbers; place value
+N3   F    inverse operations; order of operations
+N4   F    primes, factors, multiples, HCF, LCM, prime factorisation
+N5   F+H  systematic listing. H: product rule for counting
+N6   F+H  powers and roots. H: estimate powers/roots
+N7   F+H  roots and integer indices. H: fractional indices
+N8   F+H  exact fractions and pi. H: surds, rationalising denominators
+N9   F    standard form
+N10  F+H  terminating decimals <-> fractions. H: recurring decimals
+N11  F    fractions in ratio problems
+N12  F    fractions and percentages as operators
+N13  F    standard units and compound measures
+N14  F    estimation and checking
+N15  F    rounding, dp/sf; error intervals
+N16  F+H  limits of accuracy. H: upper and lower bounds
+
+ALGEBRA
+A1   F    algebraic notation
+A2   F    substitution
+A3   F    vocabulary: expression, equation, formula, identity
+A4   F+H  simplify, expand, factorise x^2+bx+c, laws of indices.
+          H: algebraic fractions, ax^2+bx+c, more than two binomials
+A5   F    use and rearrange formulae
+A6   F+H  equation vs identity, show equivalence. H: proof
+A7   F+H  functions as input/output. H: inverse and composite functions
+A8   F    coordinates in four quadrants
+A9   F+H  straight lines, y=mx+c, parallel lines. H: perpendicular lines
+A10  F    gradient and intercept
+A11  F+H  quadratic roots/turning points from graphs. H: completing the square
+A12  F+H  recognise linear, quadratic, cubic, reciprocal graphs.
+          H: exponential and trig graphs
+A13  H    graph transformations
+A14  F    real-life graphs, kinematics
+A15  H    gradients of and areas under graphs
+A16  H    circle equation at origin; tangent to circle
+A17  F    linear equations
+A18  F+H  quadratics by factorising. H: completing square, formula
+A19  F+H  linear simultaneous equations. H: linear/quadratic
+A20  H    iteration
+A21  F    forming and solving equations from contexts
+A22  F+H  linear inequalities on number line.
+          H: two variables, quadratic inequalities, set notation, regions
+A23  F    term-to-term and position-to-term rules
+A24  F    special sequences, arithmetic, Fibonacci-type, geometric
+A25  F+H  nth term of linear sequences. H: quadratic sequences
+
+RATIO, PROPORTION AND RATES OF CHANGE
+R1   F    unit and compound unit conversion
+R2   F    scale factors, scale diagrams, maps
+R3   F    one quantity as a fraction of another
+R4   F    ratio notation and simplifying
+R5   F    sharing in a ratio; ratio in context
+R6   F    multiplicative relationship as ratio or fraction
+R7   F    proportion as equality of ratios
+R8   F    ratios, fractions and linear functions
+R9   F    percentages, percentage change, reverse percentage, simple interest
+R10  F    direct and inverse proportion problems
+R11  F    compound units: speed, unit pricing, density, pressure
+R12  F    comparing lengths/areas/volumes by ratio; similarity links
+R13  F+H  inverse proportion meaning. H: construct proportion equations
+R14  F    gradient as rate of change; proportion graphs
+R15  H    instantaneous and average rate of change on curves
+R16  F+H  growth, decay, compound interest. H: general iterative processes
+
+GEOMETRY AND MEASURES
+G1   F    geometric vocabulary and notation
+G2   F    constructions and loci
+G3   F    angle facts, parallel lines, polygon angle sums
+G4   F    properties of quadrilaterals and triangles
+G5   F    congruence criteria
+G6   F    deriving results; simple geometric proofs
+G7   F+H  transformations, enlargement. H: negative scale factors
+G8   H    combined transformations
+G9   F    circle vocabulary
+G10  H    circle theorems and proofs
+G11  F    geometry on coordinate axes
+G12  F    properties of 3D solids
+G13  F    plans and elevations
+G14  F    units of measure
+G15  F    measuring, scale drawings, bearings
+G16  F    area of triangle/parallelogram/trapezium; prism volume
+G17  F    circles, composite areas, surface area and volume of solids
+G18  F    arcs and sectors
+G19  F+H  congruence and similarity lengths. H: area and volume scale factors
+G20  F+H  Pythagoras and SOHCAHTOA in 2D. H: 3D and general triangles
+G21  F    exact trig values
+G22  H    sine and cosine rules
+G23  H    area = 1/2 ab sin C
+G24  F    translation vectors
+G25  F+H  vector arithmetic and diagrams. H: vector proofs
+
+PROBABILITY
+P1   F    experiments, frequency tables and trees
+P2   F    fairness, expected outcomes
+P3   F    relative frequency vs theoretical; 0-1 scale
+P4   F    probabilities summing to one
+P5   F    larger samples approach theory
+P6   F    systematic listing: tables, grids, Venn, trees
+P7   F    sample spaces
+P8   F    independent and dependent combined events
+P9   H    conditional probability
+
+STATISTICS
+S1   F    sampling and its limits
+S2   F    tables, bar/pie charts, pictograms, line graphs
+S3   H    histograms, cumulative frequency
+S4   F+H  averages and range, comparing distributions. H: box plots, quartiles, IQR
+S5   F    describing a population
+S6   F    scatter graphs, correlation, line of best fit

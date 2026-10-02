@@ -48,12 +48,15 @@ def main():
     from mathsgen.export import export_worksheet
 
     generator = registry.get("geometry.circle_theorems.multi_step")
-    require(generator.info.version == 2, "Expected multi-step circles v2")
+    require(generator.info.version == 3, "Expected multi-step circles v3")
     specimens, checked = [], 0
     for level in range(1, 5):
         chains, orientations, names, shown = set(), set(), set(), set()
         for seed in range(SEEDS):
             q = generator.generate(seed, level)
+            # New external-angle forms have their own measured-geometry smoke.
+            if "context" in q.parameters:
+                continue
             generator.validate(q)
             generator.validate_independently(q)
             p = q.parameters
@@ -109,7 +112,7 @@ def main():
             seed=20260923, specification={"specimens": True},
             questions=tuple(specimens),
         ),
-        _MATHSGEN_PROJECT_ROOT / "exports", answers=True,
+        _MATHSGEN_PROJECT_ROOT / "exports" / "specimens", answers=True,
     )
     print("Specimen:", report["directory"])
     print("PASS:", checked, "questions; hand formulas, steps, measured figures, "

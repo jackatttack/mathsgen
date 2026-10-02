@@ -16,21 +16,21 @@ cross-multiplied invariants of the displayed numbers only.
 import math
 from fractions import Fraction
 
-from . import circle_figures, figures
+from . import circle_figures, figures, worded, similar_cylinder_contexts
 from .core import (
     Content, GeneratorInfo, LayoutHint, Question, make_context, require,
 )
 
 
 INFO = GeneratorInfo(
-    id="geometry.similarity.scale_factors", version=2,
+    id="geometry.similarity.scale_factors", version=3,
     topic="geometry", subtopic="similarity",
     title="Similar shapes: lengths, areas and volumes",
     difficulty_descriptions={
         1: "Find a corresponding length in similar triangles, enlarging or reducing.",
-        2: "Use nested similar triangles to find a side or a recovered part.",
-        3: "Use a length scale factor for areas, or recover a length from two areas.",
-        4: "Use volume or surface-area scale factors for similar cuboids.",
+        2: "Use nested triangles, or convert a similar cylinder height ratio to masses.",
+        3: "Use area scale factors, or recover cylinder height ratios from masses.",
+        4: "Use solid scale factors, or combine mass and area ratios for three cylinders.",
     },
     tags=("geometry", "similarity", "scale_factors", "area", "volume"),
 )
@@ -497,6 +497,14 @@ class SimilarShapes:
     def generate(self, seed, difficulty=1, settings=None):
         context = make_context(self.info, seed, difficulty, settings)
         require(not context.settings, "This generator accepts no settings")
+        if context.rng.random() < similar_cylinder_contexts.CONTEXT_SHARE[difficulty]:
+            return similar_cylinder_contexts.generate(self, context)
+        return self.generate_bare(seed, difficulty, settings)
+
+    def generate_bare(self, seed, difficulty=1, settings=None):
+        """Original forms use a fresh context to preserve their seed mapping."""
+        context = make_context(self.info, seed, difficulty, settings)
+        require(not context.settings, "This generator accepts no settings")
         rng = context.rng
         for attempt in range(400):
             p = draw(rng, difficulty)
@@ -531,6 +539,8 @@ class SimilarShapes:
         return q
 
     def validate(self, q):
+        if worded.is_worded(q):
+            return similar_cylinder_contexts.validate(self, q)
         require(q.generator_id == self.info.id, "Generator mismatch")
         require(q.generator_version == self.info.version, "Version mismatch")
         level = q.difficulty
@@ -548,6 +558,8 @@ class SimilarShapes:
 
     def validate_independently(self, q):
         """Cross-multiplied invariants of the displayed numbers; no scale factor."""
+        if worded.is_worded(q):
+            return similar_cylinder_contexts.validate_independently(q)
         p, x = q.parameters, q.answer.get("value")
         require(type(x) is int and x > 0, "Invalid answer")
         form = p["form"]

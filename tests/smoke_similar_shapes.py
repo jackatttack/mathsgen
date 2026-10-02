@@ -30,12 +30,12 @@ def main():
     from mathsgen.export import export_worksheet
 
     generator = registry.get("geometry.similarity.scale_factors")
-    require(generator.info.version == 2, "Expected similarity v2")
+    require(generator.info.version == 3, "Expected similarity v3")
     specimens, checked = [], 0
     for level in range(1, 5):
         forms, shapes, names, shown = set(), set(), set(), set()
         for seed in range(SEEDS):
-            q = generator.generate(seed, level)
+            q = generator.generate_bare(seed, level)
             generator.validate(q)
             generator.validate_independently(q)
             p = q.parameters
@@ -88,7 +88,7 @@ def main():
             seed=20260923, specification={"specimens": True},
             questions=tuple(specimens),
         ),
-        _MATHSGEN_PROJECT_ROOT / "exports", answers=True,
+        _MATHSGEN_PROJECT_ROOT / "exports" / "specimens", answers=True,
     )
     print("Specimen:", report["directory"])
     print("PASS:", checked, "questions; invariants, tampering, label clearance, "

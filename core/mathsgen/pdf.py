@@ -313,6 +313,122 @@ class QuestionBlock(KeepTogether):
         return result
 
 
+def question_story(question, number, mode, specification, style, theme, width, height):
+    """One question as a page-safe flowable, numbered and styled for the mode.
+
+    width and height are the document frame's. Shared by worksheet PDFs and
+    block sheets, so a question looks the same in both.
+    """
+    question_label_style = ParagraphStyle(
+        "QuestionLabel_" + question.topic,
+        parent=style["label"],
+        textColor=colors.HexColor(
+            topic_style(question.topic)[1] if theme.topic_colours else theme.accent
+        ),
+    )
+    heading = "Question {}".format(number)
+    if specification.get("show_difficulty", True):
+        heading += "    " + difficulty_stars(question.difficulty)
+
+    if mode == "questions" and specification.get("interactive_links", True):
+        from .question_actions import action_links_markup
+
+        # Keep the question number, difficulty and action links in one
+        # paragraph inside the white question panel. Links retain their own
+        # font and colour rather than inheriting the topic-coloured heading.
+        heading_markup = (
+            escape(heading)
+            + " &nbsp;&nbsp; "
+            + '<font name="{}" size="9">'.format(theme.body_font)
+            + action_links_markup(question, theme.link_ink)
+            + "</font>"
+        )
+        blocks = [Paragraph(heading_markup, question_label_style)]
+    else:
+        blocks = [paragraph(heading, question_label_style)]
+    if specification.get("show_source", True):
+        blocks.append(paragraph(source_line(question), style["source"]))
+
+    student_assets = question.visual_assets("questions")
+    beside = (
+        mode == "questions"
+        and len(student_assets) == 1
+        and student_assets[0].get("kind") == "scene"
+        and not question.choices
+        and question.layout_hint.working_lines > 0
+    )
+    if mode != "answers":
+        blocks.extend(question_prompt(question, style["body"]))
+        if not beside:
+            blocks.extend(visual_blocks(question, "questions"))
+    if mode != "answers" and question.choices:
+        for index, choice in enumerate(question.choices):
+            content = choice.content
+            if content.blocks:
+                from .content_rendering import content_flowables
+                option = content_flowables(
+                    content, style["body"],
+                    question.generator_id + " choice " + str(index + 1),
+                )
+            else:
+                option = (
+                    MathLine(content.math_tex, size=12) if content.math_tex
+                    else paragraph(content.text, style["body"])
+                )
+            row = Table(
+                [[paragraph(chr(65 + index) + ".", style["label"]), option]],
+                colWidths=[25, width - (49 if mode == "questions" else 37)],
+                hAlign="LEFT",
+            )
+            row.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]))
+            blocks.append(row)
+    if mode == "questions":
+        # Only the actual question content gets white backing.
+        # Reserved writing space remains transparent to the page grid.
+        blocks = [white_panel(blocks, width - 12)]
+        if beside:
+            blocks.append(Spacer(1, 6))
+            blocks.append(scene_working_row(question, width - 12))
+            blocks.append(Spacer(1, 6))
+        else:
+            blocks.append(WorkingSpace(question.layout_hint.working_lines))
+    elif mode == "answers":
+        if question.answer_display.blocks:
+            from .content_rendering import content_flowables
+            blocks.extend(content_flowables(
+                question.answer_display, style["body"],
+                question.generator_id + " answer",
+            ))
+        elif question.answer_display.math_tex:
+            blocks.append(MathLine(question.answer_display.math_tex))
+        else:
+            blocks.append(paragraph(question.answer_display.text, style["body"]))
+    else:
+        blocks.append(Spacer(1, 6))
+        for step in question.worked_solution:
+            if step.blocks:
+                from .content_rendering import content_flowables
+                blocks.extend(content_flowables(
+                    step, style["body"], question.generator_id + " worked step",
+                ))
+            else:
+                if step.text:
+                    blocks.append(paragraph(step.text, style["body"]))
+                if step.math_tex:
+                    blocks.append(MathLine(step.math_tex, size=12))
+    if mode in ("answers", "worked"):
+        blocks.extend(visual_blocks(question, "answers"))
+    blocks.append(Spacer(1, 14))
+    # SimpleDocTemplate's default frame has six-point padding per edge.
+    return QuestionBlock(blocks, height - 12, number)
+
+
 def render_pdf(worksheet, destination, mode="questions"):
     """Write one variant. Refuse unsupported diagrams rather than omit them."""
     require(mode in ("questions", "answers", "worked"), "Unknown PDF mode")
@@ -348,120 +464,10 @@ def render_pdf(worksheet, destination, mode="questions"):
         story = [white_panel(story, document.width - 12), Spacer(1, 10)]
 
     for number, question in enumerate(worksheet.questions, 1):
-        question_label_style = ParagraphStyle(
-            "QuestionLabel_" + question.topic,
-            parent=style["label"],
-            textColor=colors.HexColor(
-                topic_style(question.topic)[1] if theme.topic_colours else theme.accent
-            ),
-        )
-        heading = "Question {}".format(number)
-        if worksheet.specification.get("show_difficulty", True):
-            heading += "    " + difficulty_stars(question.difficulty)
-
-        if (
-            mode == "questions"
-            and worksheet.specification.get("interactive_links", True)
-        ):
-            from .question_actions import action_links_markup
-
-            # Keep the question number, difficulty and action links in
-            # one paragraph inside the existing white question panel.
-            # Links retain their own font and colour rather than
-            # inheriting the bold, topic-coloured heading style.
-            heading_markup = (
-                escape(heading)
-                + " &nbsp;&nbsp; "
-                + '<font name="{}" size="9">'.format(theme.body_font)
-                + action_links_markup(question, theme.link_ink)
-                + "</font>"
-            )
-            blocks = [Paragraph(heading_markup, question_label_style)]
-        else:
-            blocks = [paragraph(heading, question_label_style)]
-        if show_source:
-            blocks.append(paragraph(source_line(question), style["source"]))
-
-        student_assets = question.visual_assets("questions")
-        beside = (
-            mode == "questions"
-            and len(student_assets) == 1
-            and student_assets[0].get("kind") == "scene"
-            and not question.choices
-            and question.layout_hint.working_lines > 0
-        )
-        if mode != "answers":
-            blocks.extend(question_prompt(question, style["body"]))
-            if not beside:
-                blocks.extend(visual_blocks(question, "questions"))
-        if mode != "answers" and question.choices:
-            for index, choice in enumerate(question.choices):
-                content = choice.content
-                if content.blocks:
-                    from .content_rendering import content_flowables
-                    option = content_flowables(
-                        content, style["body"],
-                        question.generator_id + " choice " + str(index + 1),
-                    )
-                else:
-                    option = (
-                        MathLine(content.math_tex, size=12) if content.math_tex
-                        else paragraph(content.text, style["body"])
-                    )
-                row = Table(
-                    [[paragraph(chr(65 + index) + ".", style["label"]), option]],
-                    colWidths=[25, document.width - (49 if mode == "questions" else 37)],
-                    hAlign="LEFT",
-                )
-                row.setStyle(TableStyle([
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                ]))
-                blocks.append(row)
-        if mode == "questions":
-            # Only the actual question content gets white backing.
-            # Reserved writing space remains transparent to the page grid.
-            blocks = [white_panel(blocks, document.width - 12)]
-            if beside:
-                blocks.append(Spacer(1, 6))
-                blocks.append(scene_working_row(question, document.width - 12))
-                blocks.append(Spacer(1, 6))
-            else:
-                blocks.append(WorkingSpace(question.layout_hint.working_lines))
-        elif mode == "answers":
-            if question.answer_display.blocks:
-                from .content_rendering import content_flowables
-                blocks.extend(content_flowables(
-                    question.answer_display, style["body"],
-                    question.generator_id + " answer",
-                ))
-            elif question.answer_display.math_tex:
-                blocks.append(MathLine(question.answer_display.math_tex))
-            else:
-                blocks.append(paragraph(question.answer_display.text, style["body"]))
-        else:
-            blocks.append(Spacer(1, 6))
-            for step in question.worked_solution:
-                if step.blocks:
-                    from .content_rendering import content_flowables
-                    blocks.extend(content_flowables(
-                        step, style["body"], question.generator_id + " worked step",
-                    ))
-                else:
-                    if step.text:
-                        blocks.append(paragraph(step.text, style["body"]))
-                    if step.math_tex:
-                        blocks.append(MathLine(step.math_tex, size=12))
-        if mode in ("answers", "worked"):
-            blocks.extend(visual_blocks(question, "answers"))
-        # Action links are now part of the question heading. There is
-        # no separate action panel beneath the working space.
-        blocks.append(Spacer(1, 14))
-        # SimpleDocTemplate's default frame has six-point padding per edge.
-        story.append(QuestionBlock(blocks, document.height - 12, number))
+        story.append(question_story(
+            question, number, mode, worksheet.specification,
+            style, theme, document.width, document.height,
+        ))
 
     def footer(canvas, doc):
         # Page callbacks execute before flowables, so every panel paints over

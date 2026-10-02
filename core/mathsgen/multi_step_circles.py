@@ -22,21 +22,21 @@ validation. Letters and orientation are seeded too.
 import math
 from fractions import Fraction
 
-from . import circle_figures, figures
+from . import circle_figures, figures, external_circle_contexts
 from .core import (
     Content, GeneratorInfo, LayoutHint, Question, make_context, require,
 )
 
 
 INFO = GeneratorInfo(
-    id="geometry.circle_theorems.multi_step", version=2,
+    id="geometry.circle_theorems.multi_step", version=3,
     topic="geometry", subtopic="circle_theorems",
     title="Circle theorems: multi-step problems",
     difficulty_descriptions={
         1: "Chain two theorems: centre then cyclic, or semicircle then triangle.",
         2: "Chain a tangent fact into an isosceles triangle or the centre theorem.",
-        3: "Chain three steps through a semicircle or the alternate segment.",
-        4: "Chain three steps from two tangents, or solve an algebraic chain.",
+        3: "Chain circle and triangle facts, including extended sides meeting outside.",
+        4: "Use tangents and reflex angles, or solve an algebraic circle chain.",
     },
     tags=("geometry", "circle_theorems", "angles", "multi_step", "reasoning"),
 )
@@ -411,6 +411,9 @@ class MultiStepCircles:
         context = make_context(self.info, seed, difficulty, settings)
         require(not context.settings, "This generator accepts no settings")
         rng = context.rng
+        if difficulty in external_circle_contexts.SHARE:
+            if rng.random() < external_circle_contexts.SHARE[difficulty]:
+                return external_circle_contexts.generate(self, context)
         for attempt in range(400):
             p = draw(rng, difficulty)
             try:
@@ -437,6 +440,8 @@ class MultiStepCircles:
         return q
 
     def validate(self, q):
+        if external_circle_contexts.is_applied(q):
+            return external_circle_contexts.validate(self, q)
         require(q.generator_id == self.info.id, "Generator mismatch")
         require(q.generator_version == self.info.version, "Version mismatch")
         level = q.difficulty
@@ -453,6 +458,8 @@ class MultiStepCircles:
 
     def validate_independently(self, q):
         """Build the figure from the given angle alone and measure the answer with atan2."""
+        if external_circle_contexts.is_applied(q):
+            return external_circle_contexts.validate_independently(q)
         p, x = q.parameters, q.answer.get("value")
         require(type(x) is int, "Expected a whole-number answer")
 

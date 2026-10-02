@@ -22,7 +22,7 @@ from .core import (
 
 INFO = GeneratorInfo(
     id="algebra.factorising.common_factor",
-    version=2,
+    version=3,
     topic="algebra",
     subtopic="factorising",
     title="Take out the greatest common factor",
@@ -104,7 +104,21 @@ def divided_by(terms, factor, factor_powers):
 class CommonFactor:
     info = INFO
 
+    # Version 3 mixes in applied forms (common_factor_contexts.py): rectangle
+    # sides, always-a-multiple and incomplete factorisations. Bare questions
+    # keep their old seeds because generate_bare() builds its own context.
+
     def generate(self, seed, difficulty=1, settings=None):
+        """Draw once to choose an applied form, otherwise a bare question."""
+        from . import common_factor_contexts as worded_forms
+        context = make_context(self.info, seed, difficulty, settings)
+        if context.settings:
+            raise ValueError("This generator currently accepts no settings")
+        if context.rng.random() < worded_forms.context_share(difficulty):
+            return worded_forms.generate(self, context)
+        return self.generate_bare(seed, difficulty, settings)
+
+    def generate_bare(self, seed, difficulty=1, settings=None):
         context = make_context(self.info, seed, difficulty, settings)
         if context.settings:
             raise ValueError("This generator currently accepts no settings")
@@ -225,6 +239,10 @@ class CommonFactor:
         return question
 
     def validate(self, question):
+        from .worded import is_worded
+        if is_worded(question):
+            from .common_factor_contexts import validate as validate_worded
+            return validate_worded(self, question)
         require(question.generator_id == self.info.id, "Generator mismatch")
         require(question.generator_version == self.info.version, "Version mismatch")
         level = question.difficulty
@@ -249,6 +267,10 @@ class CommonFactor:
                 "Powers must be non-negative integers")
 
         answer = question.answer
+        # A malformed answer must be rejected cleanly, never raise KeyError.
+        require(isinstance(answer, dict) and answer.get("kind") == "common_factor_form"
+                and {"factor", "factor_powers", "inner"} <= set(answer),
+                "Unexpected answer")
         factor = answer["factor"]
         factor_powers = tuple(answer["factor_powers"])
         inner = [(c, tuple(powers)) for c, powers in answer["inner"]]
@@ -300,6 +322,10 @@ class CommonFactor:
         expression outwards from a chosen factor, and it also confirms the
         factorisation is complete rather than merely correct.
         """
+        from .worded import is_worded
+        if is_worded(question):
+            from .common_factor_contexts import validate_independently as independent_worded
+            return independent_worded(question)
         import sympy
 
         p = question.parameters

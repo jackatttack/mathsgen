@@ -16,6 +16,40 @@ MUTED = "#64748B"
 THEME_CHOICES = ("calm", "classic", "contrast")
 
 
+from .drill import DEFAULT_APPLY_ITEMS, DRILL_SKILLS, MAXIMUM_ITEMS_PER_STAGE, drill_skills
+
+
+def make_drill_blocks(registry, selected, count, levels, apply=True):
+    """Drill exercises for the ticked skills.
+
+    Each skill gets one stage per chosen level it supports in drill form,
+    count items each; with apply on, DEFAULT_APPLY_ITEMS applied problems
+    follow, drawn from every chosen level the skill supports at all.
+    """
+    if type(count) is not int or count < 1:
+        raise ValueError("Enter a positive number of items per level.")
+    if count > MAXIMUM_ITEMS_PER_STAGE:
+        raise ValueError("Use at most {} items per level.".format(MAXIMUM_ITEMS_PER_STAGE))
+    if not levels:
+        raise ValueError("Choose at least one difficulty.")
+    blocks = []
+    for info, drill_levels in drill_skills(registry):
+        if info.id not in selected:
+            continue
+        supported = sorted(set(levels) & set(drill_levels))
+        if not supported:
+            raise ValueError("{} has drill questions at difficulty {} only.".format(
+                info.title, ", ".join(str(level) for level in drill_levels)))
+        blocks.append({
+            "generator_id": info.id, "levels": supported, "count": count,
+            "apply": DEFAULT_APPLY_ITEMS if apply else 0,
+            "apply_levels": sorted(set(levels) & set(info.difficulty_descriptions)),
+        })
+    if not blocks:
+        raise ValueError("Tick at least one drill skill.")
+    return blocks
+
+
 def make_spec(registry, selected, count, levels, title, shuffle):
     if type(count) is not int or count < 1:
         raise ValueError("Enter a positive number of questions per type.")
@@ -93,9 +127,23 @@ class WorksheetBuilder(ui.View):
         self.saved_report = None
         # Each mode keeps its own count; skill selections and subject
         # filters are both preserved while the other mode is shown.
-        self.mode = "skills"
+        self.mode = "build"
+        # Build mode: ordered blocks, edited in build_ui.BuildEditor.
+        self.build_blocks = []
+        self.editor = None
+        self.workspace = None
         self.per_type_count = 5
         self.mini_total = 12
+        # Quick start (kept under the legacy "mini" mode key so saved settings
+        # carry over): pick by year group or grade band. Tags load on first use.
+        self.quick_kind = "year"
+        self.quick_year = 7
+        self.quick_band = "Grades 4-5"
+        self.level_tags = None
+        # Drill mode keeps its own skill ticks and items-per-skill count.
+        self.drill_selected = set()
+        self.drill_count = 12
+        self.drill_apply = True
         self.topics = list(dict.fromkeys(group["topic"] for group in self.groups))
         self.mini_subjects = set(self.topics)
         self.exam_tier = "higher"
@@ -147,12 +195,36 @@ class WorksheetBuilder(ui.View):
         self.clear = button("Clear", self.clear_selection)
 
         self.mode_control = ui.SegmentedControl()
-        self.mode_control.segments = ["Skills", "Mini paper", "Exam paper"]
-        self.mode_control.selected_index = 0
+        self.mode_control.segments = ["Quick start", "Build", "Exam paper", "Drill"]
+        self.mode_control.selected_index = 1
         self.mode_control.tint_color = ACCENT
         self.mode_control.action = self.change_mode
         self.order_note = label("Order: easier → harder (automatic)", 13)
         self.order_note.text_color = MUTED
+        # Drill mode: finish each exercise with worded and diagram problems.
+        self.apply_label = label("Finish with applied problems", 13)
+        self.apply_switch = ui.Switch()
+        self.apply_switch.tint_color = ACCENT
+        self.apply_switch.action = self.change_apply
+        self.scroll.add_subview(self.apply_label)
+        self.scroll.add_subview(self.apply_switch)
+        # Quick start: year group or grade band, then which one.
+        self.quick_kind_control = ui.SegmentedControl()
+        self.quick_kind_control.segments = ["Year group", "Grade"]
+        self.quick_kind_control.tint_color = ACCENT
+        self.quick_kind_control.action = self.change_quick
+        self.scroll.add_subview(self.quick_kind_control)
+        self.quick_choice_control = ui.SegmentedControl()
+        self.quick_choice_control.segments = self.quick_choice_labels()
+        self.quick_choice_control.tint_color = ACCENT
+        self.quick_choice_control.action = self.change_quick
+        self.scroll.add_subview(self.quick_choice_control)
+        # Build: the sheet is edited in BuildEditor; the tab shows a summary.
+        self.build_button = button("Edit sheet", self.open_build_editor)
+        self.scroll.add_subview(self.build_button)
+        self.build_summary = label("", 14)
+        self.build_summary.number_of_lines = 0
+        self.scroll.add_subview(self.build_summary)
         # Exam papers: the builder sets marks, grades, title and order; only
         # the tier and paper number are chosen here.
         self.exam_tier_control = ui.SegmentedControl()
@@ -315,11 +387,28 @@ class WorksheetBuilder(ui.View):
         self.scroll.frame = (0, 0, self.width, max(100, self.height - footer_height))
         mini = self.mode == "mini"
         exam = self.mode == "exam"
+        drill = self.mode == "drill"
+        build = self.mode == "build"
         # Exam mode replaces the title, count and difficulty rows with the
         # tier and paper choices; the builder sets everything else.
-        for view in (self.title_field, self.count_label, self.minus, self.plus,
-                     self.count_field, self.difficulty_label, *self.level_buttons):
-            view.hidden = exam
+        self.title_field.hidden = exam
+        for view in (self.count_label, self.minus, self.plus, self.count_field):
+            view.hidden = exam or build
+        # Quick start swaps the difficulty pills for a year or grade picker;
+        # Build sets difficulty per block in the editor.
+        for view in (self.difficulty_label, *self.level_buttons):
+            view.hidden = exam or mini or build
+        # Build mode is the workspace itself, filling the space under the tabs.
+        self.build_button.hidden = self.build_summary.hidden = True
+        self.scroll.scroll_enabled = not build
+        # Build's sheet carries Generate and the preview actions itself.
+        self.total_label.hidden = self.generate_button.hidden = build
+        if self.workspace is not None:
+            self.workspace.hidden = not build
+        for view in (self.quick_kind_control, self.quick_choice_control):
+            view.hidden = not mini
+        self.quick_kind_control.frame = (left, 216, width, 34)
+        self.quick_choice_control.frame = (left, 264, width, 34)
         for view in (self.exam_tier_control, self.exam_paper_control, self.exam_note):
             view.hidden = not exam
         self.exam_tier_control.frame = (left, 114, width, 34)
@@ -338,13 +427,18 @@ class WorksheetBuilder(ui.View):
         for index, item in enumerate(self.level_buttons):
             item.frame = (left + width - 4 * pill_width + index * pill_width,
                           216, pill_width - 5, 34)
-        # Mini papers always run easier to harder, so the order control is
-        # replaced by a note rather than silently ignored.
-        self.order.hidden = mini or exam
-        self.order_note.hidden = not mini
+        # Quick start always runs easier to harder (its subtitle says so) and
+        # uses the order row for its picker.
+        self.order.hidden = mini or exam or drill or build
+        self.order_note.hidden = True
+        # Drill always runs level by level; its order slot holds the apply switch.
+        self.apply_label.hidden = not drill
+        self.apply_switch.hidden = not drill
+        self.apply_label.frame = (left, 264, width - 60, 34)
+        self.apply_switch.frame = (left + width - 51, 265, 51, 32)
         self.order.frame = (left, 264, width, 34)
         self.order_note.frame = (left, 264, width, 34)
-        settings_y = 250 if exam else 310
+        settings_y = 250 if exam else 226 if build else 310
         self.answers_label.frame = (left, settings_y, 130, 32)
         self.answers.frame = (left + width - 51, settings_y, 51, 32)
         self.theme_label.frame = (left, settings_y + 46, 110, 34)
@@ -354,10 +448,10 @@ class WorksheetBuilder(ui.View):
         self.select_all.frame = (left + width - 165, 402, 90, 36)
         self.clear.frame = (left + width - 75, 402, 75, 36)
         self.clear.title = "Clear all"
-        self.search_field.hidden = mini or exam
-        self.search_clear.hidden = mini or exam
+        self.search_field.hidden = mini or exam or build
+        self.search_clear.hidden = mini or exam or build
         for view in (self.list_heading, self.select_all, self.clear):
-            view.hidden = exam
+            view.hidden = exam or build
         self.search_field.frame = (left, 444, width - 64, 40)
         self.search_clear.frame = (left + width - 60, 444, 60, 40)
         query = self.search_field.text or ""
@@ -379,6 +473,13 @@ class WorksheetBuilder(ui.View):
             self.empty_label.hidden = True
             self.finish_layout(settings_y + 92, left, width, footer_height)
             return
+        if build:
+            self.empty_label.hidden = True
+            self.finish_layout(settings_y + 92, left, width, footer_height)
+            for view in (self.status, self.open_questions, self.open_answers, self.save_button):
+                view.hidden = True
+            self.show_workspace()
+            return
         if mini:
             # Individual skill selections stay hidden but preserved.
             y = 444
@@ -397,7 +498,8 @@ class WorksheetBuilder(ui.View):
         shown_topics = set()
         match_count = 0
         for group in self.groups:
-            visible = [info for info in group["infos"] if matches(info, query)]
+            visible = [info for info in group["infos"]
+                       if matches(info, query) and self.offered(info)]
             if not visible:
                 continue
             match_count += len(visible)
@@ -413,8 +515,9 @@ class WorksheetBuilder(ui.View):
                 summary.frame = (width - 142, 4, 130, 44)
                 summary.alignment = ui.ALIGN_RIGHT
                 title.text = ("▾ " if topic_opened else "▸ ") + topic_style(topic)[0]
-                topic_infos = [info for info in self.infos if info.topic == topic]
-                selected_count = sum(info.id in self.selected for info in topic_infos)
+                topic_infos = [info for info in self.infos
+                               if info.topic == topic and self.offered(info)]
+                selected_count = sum(info.id in self.chosen() for info in topic_infos)
                 summary.text = "{}/{} selected".format(selected_count, len(topic_infos))
                 if searching:
                     summary.text += " · {} matching".format(
@@ -434,12 +537,13 @@ class WorksheetBuilder(ui.View):
             count.frame = (width - 192, 4, 70, 40)
             count.alignment = ui.ALIGN_RIGHT
             name.text = ("▾ " if opened else "▸ ") + group["title"]
-            selected = sum(info.id in self.selected for info in group["infos"])
-            count.text = "{}/{} selected".format(selected, len(group["infos"]))
+            group_infos = [info for info in group["infos"] if self.offered(info)]
+            selected = sum(info.id in self.chosen() for info in group_infos)
+            count.text = "{}/{} selected".format(selected, len(group_infos))
             control = self.group_selection_buttons[key]
             control.hidden = False
             control.frame = (left + width - 96, y + 4, 96, 40)
-            all_selected = all(info.id in self.selected for info in visible)
+            all_selected = all(info.id in self.chosen() for info in visible)
             if searching:
                 control.title = "Clear shown" if all_selected else "All shown"
             else:
@@ -508,19 +612,39 @@ class WorksheetBuilder(ui.View):
             subjects = state.get("mini_subjects")
             if isinstance(subjects, list) and all(isinstance(x, str) for x in subjects):
                 self.mini_subjects = set(subjects) & set(self.topics)
+            drill_selected = state.get("drill_selected")
+            if isinstance(drill_selected, list) and all(isinstance(x, str) for x in drill_selected):
+                self.drill_selected = set(drill_selected) & set(DRILL_SKILLS)
+            drill_count = state.get("drill_count", 12)
+            if type(drill_count) is int and 1 <= drill_count <= MAXIMUM_ITEMS_PER_STAGE:
+                self.drill_count = drill_count
+            self.drill_apply = bool(state.get("drill_apply", True))
             tier = state.get("exam_tier")
             if tier in ("foundation", "higher"):
                 self.exam_tier = tier
             paper = state.get("exam_paper")
             if type(paper) is int and paper in (1, 2, 3):
                 self.exam_paper = paper
+            from .curriculum import GRADE_BANDS, YEAR_GROUPS
+            if state.get("quick_kind") in ("year", "grade"):
+                self.quick_kind = state["quick_kind"]
+            if state.get("quick_year") in YEAR_GROUPS:
+                self.quick_year = state["quick_year"]
+            if state.get("quick_band") in GRADE_BANDS:
+                self.quick_band = state["quick_band"]
+            from .build_model import usable_blocks
+            self.build_blocks = usable_blocks(state.get("build_blocks", []), self.registry)
             if state.get("mode") == "mini":
                 self.mode = "mini"
-                self.mode_control.selected_index = 1
+                self.mode_control.selected_index = 0
                 self.count_field.text = str(self.mini_total)
             elif state.get("mode") == "exam":
                 self.mode = "exam"
                 self.mode_control.selected_index = 2
+            elif state.get("mode") == "drill":
+                self.mode = "drill"
+                self.mode_control.selected_index = 3
+                self.count_field.text = str(self.drill_count)
             expanded = state.get("expanded_groups", [])
             if isinstance(expanded, list) and all(isinstance(key, str) for key in expanded):
                 self.expanded_groups = set(expanded) & set(self.group_headers)
@@ -541,6 +665,13 @@ class WorksheetBuilder(ui.View):
                 "mode": self.mode,
                 "mini_total": self.mini_total,
                 "mini_subjects": sorted(self.mini_subjects),
+                "quick_kind": self.quick_kind,
+                "quick_year": self.quick_year,
+                "quick_band": self.quick_band,
+                "build_blocks": self.build_blocks,
+                "drill_selected": sorted(self.drill_selected),
+                "drill_count": self.drill_count,
+                "drill_apply": self.drill_apply,
                 "exam_tier": self.exam_tier,
                 "exam_paper": self.exam_paper,
                 "title": self.title_field.text,
@@ -561,18 +692,29 @@ class WorksheetBuilder(ui.View):
             count, valid = 0, False
         mini = self.mode == "mini"
         exam = self.mode == "exam"
-        self.count_label.text = "Total questions" if mini else "Questions per type"
+        drill = self.mode == "drill"
+        self.count_label.text = (
+            "Total questions" if mini
+            else "Items per level" if drill else "Questions per type"
+        )
         if exam:
             self.subtitle.text = "Edexcel-style: 80 marks, weighted by strand, easiest first."
+        elif drill:
+            self.subtitle.text = "Each skill runs level by level, then applied problems."
         else:
             self.subtitle.text = (
-                "A balanced paper that gets harder as it goes." if mini
-                else "Tick skills below. Each gets the same question count."
+                "Mixed questions for a year group or grade, easier → harder." if mini
+                else "Arrange skill blocks in the order you want them printed."
             )
+        self.order_note.text = (
+            "Order: easier → harder within each exercise" if drill
+            else "Order: easier → harder (automatic)"
+        )
         if not self.busy:
             self.generate_button.title = (
                 "Generate exam paper" if exam
-                else "Generate mini paper" if mini else "Generate preview"
+                else "Generate drill sheet" if drill
+                else "Generate quick start" if mini else "Generate preview"
             )
         self.exam_tier_control.selected_index = 0 if self.exam_tier == "foundation" else 1
         self.exam_paper_control.selected_index = self.exam_paper - 1
@@ -584,16 +726,30 @@ class WorksheetBuilder(ui.View):
             self.total_label.text = "{} · Paper {} · 80 marks".format(
                 self.exam_tier.title(), self.exam_paper)
             can_generate = True
+        elif drill:
+            items = 0
+            for info in self.infos:
+                if info.id in self.drill_selected:
+                    items += len(self.offered_levels(info)) * max(count, 0)
+                    items += DEFAULT_APPLY_ITEMS if self.drill_apply else 0
+            self.total_label.text = "{} skills · {} items".format(
+                len(self.drill_selected), items
+            )
+            self.apply_switch.value = self.drill_apply
+            can_generate = bool(valid and self.drill_selected and self.levels)
         elif mini:
-            self.total_label.text = "{} questions · {} of {} subjects".format(
-                count, len(self.mini_subjects), len(self.topics)
+            self.sync_quick_controls()
+            self.total_label.text = "{} questions · {} · {} of {} subjects".format(
+                count, self.quick_target()[1], len(self.mini_subjects), len(self.topics)
             )
-            can_generate = bool(valid and self.mini_subjects and self.levels)
+            can_generate = bool(valid and self.mini_subjects)
         else:
-            self.total_label.text = "{} types × {} each = {} questions".format(
-                len(self.selected), count, count * len(self.selected)
-            )
-            can_generate = bool(valid and self.selected and self.levels)
+            from .build_model import block_size
+            total = sum(block_size(block) for block in self.build_blocks)
+            self.total_label.text = "{} block{} · {} questions".format(
+                len(self.build_blocks), "" if len(self.build_blocks) == 1 else "s", total)
+            self.build_summary.text = self.build_summary_text()
+            can_generate = bool(self.build_blocks)
         self.generate_button.enabled = can_generate and not self.busy
         self.generate_button.alpha = 1 if self.generate_button.enabled else 0.45
         ready = self.report is not None and not self.busy
@@ -614,14 +770,14 @@ class WorksheetBuilder(ui.View):
             row.background_color = tint if active else "white"
             row.border_color = colour if active else tint
             tick.text = "✓" if active else "○"
-            detail.text = "{} skills".format(sum(info.topic == topic for info in self.infos))
+            detail.text = self.subject_detail(topic)
         for info, row, title, detail, tick in self.rows:
-            active = info.id in self.selected
+            active = info.id in self.chosen()
             colour, tint = topic_style(info.topic)[1:]
             row.background_color = tint if active else "white"
             row.border_color = colour if active else tint
             tick.text = "✓" if active else "○"
-            supported = sorted(self.levels & set(info.difficulty_descriptions))
+            supported = self.offered_levels(info)
             if len(supported) == 1:
                 detail.text = info.difficulty_descriptions[supported[0]]
             elif supported:
@@ -629,6 +785,33 @@ class WorksheetBuilder(ui.View):
             else:
                 detail.text = "Choose a supported difficulty."
         self.layout()
+
+    # ------------------------------------------------------ mode-aware helpers
+
+    def chosen(self):
+        """The skill selection for the current mode; drill keeps its own."""
+        return self.drill_selected if self.mode == "drill" else self.selected
+
+    def offered(self, info):
+        """Whether a skill appears in the list in the current mode."""
+        return self.mode != "drill" or info.id in DRILL_SKILLS
+
+    def offered_levels(self, info):
+        """Chosen difficulties this skill can produce in the current mode."""
+        if self.mode == "drill":
+            return sorted(self.levels & set(DRILL_SKILLS.get(info.id, ())))
+        return sorted(self.levels & set(info.difficulty_descriptions))
+
+    def count_for_mode(self):
+        if self.mode == "mini":
+            return self.mini_total
+        if self.mode == "drill":
+            return self.drill_count
+        return self.per_type_count
+
+    def change_apply(self, sender):
+        self.drill_apply = bool(sender.value)
+        self.settings_changed(sender)
 
     def toggle_topic(self, sender):
         """Fold a subject without changing its selections or nested groups."""
@@ -664,13 +847,15 @@ class WorksheetBuilder(ui.View):
         if group is None:
             return
         query = self.search_field.text or ""
-        targets = {info.id for info in group["infos"] if matches(info, query)}
+        targets = {info.id for info in group["infos"]
+                   if matches(info, query) and self.offered(info)}
         if not targets:
             return
-        if targets <= self.selected:
-            self.selected.difference_update(targets)
+        selection = self.chosen()
+        if targets <= selection:
+            selection.difference_update(targets)
         else:
-            self.selected.update(targets)
+            selection.update(targets)
         self.settings_changed(sender)
 
     def clear_search(self, sender):
@@ -712,10 +897,11 @@ class WorksheetBuilder(ui.View):
         self.settings_changed(sender)
 
     def toggle_generator(self, sender):
-        if sender.name in self.selected:
-            self.selected.remove(sender.name)
+        selection = self.chosen()
+        if sender.name in selection:
+            selection.remove(sender.name)
         else:
-            self.selected.add(sender.name)
+            selection.add(sender.name)
         self.settings_changed(sender)
 
     def select_everything(self, sender):
@@ -723,14 +909,17 @@ class WorksheetBuilder(ui.View):
             self.mini_subjects = set(self.topics)
         else:
             query = self.search_field.text or ""
-            self.selected.update(info.id for info in self.infos if matches(info, query))
+            self.chosen().update(
+                info.id for info in self.infos
+                if matches(info, query) and self.offered(info)
+            )
         self.settings_changed(sender)
 
     def clear_selection(self, sender):
         if self.mode == "mini":
             self.mini_subjects.clear()
         else:
-            self.selected.clear()
+            self.chosen().clear()
         self.settings_changed(sender)
 
     def store_count(self):
@@ -743,14 +932,16 @@ class WorksheetBuilder(ui.View):
             return
         if self.mode == "mini":
             self.mini_total = count
+        elif self.mode == "drill":
+            self.drill_count = count
         else:
             self.per_type_count = count
 
     def change_mode(self, sender):
         """Switch modes, preserving each mode's count and selections."""
         self.store_count()
-        self.mode = ("skills", "mini", "exam")[self.mode_control.selected_index]
-        self.count_field.text = str(self.mini_total if self.mode == "mini" else self.per_type_count)
+        self.mode = ("mini", "build", "exam", "drill")[self.mode_control.selected_index]
+        self.count_field.text = str(self.count_for_mode())
         self.status.text = ""
         self.settings_changed(sender)
 
@@ -759,6 +950,137 @@ class WorksheetBuilder(ui.View):
         self.exam_tier = ("foundation", "higher")[self.exam_tier_control.selected_index]
         self.exam_paper = self.exam_paper_control.selected_index + 1
         self.settings_changed(sender)
+
+    # ------------------------------------------------------------ build
+
+    def build_summary_text(self):
+        """The Build tab's list: each block's number, skill and settings."""
+        if not self.build_blocks:
+            return "No blocks yet. Tap Edit sheet to add skills and arrange them."
+        from .build_model import block_summary
+        titles = {info.id: info.title for info in self.infos}
+        lines = []
+        for number, block in enumerate(self.build_blocks, 1):
+            lines.append("{}. {}".format(number, titles.get(block["generator_id"], "?")))
+            lines.append("      " + block_summary(block))
+        return "\n".join(lines)
+
+    def open_build_editor(self, sender):
+        """Kept for the hidden Edit sheet button: Build now shows the workspace."""
+        self.show_workspace()
+
+    def show_workspace(self):
+        """Build mode: the skill board and sheet fill the space under the tabs."""
+        from .build_workspace import Workspace
+        if self.workspace is None:
+            self.workspace = Workspace(
+                self.registry, self.build_blocks, self.title_field.text,
+                self.workspace_changed,
+                answers=self.answers.value,
+                theme_index=self.theme_control.selected_index,
+                theme_names=[name.title() for name in THEME_CHOICES],
+                on_settings=self.workspace_settings,
+                on_generate=lambda: self.generate(None),
+                on_action=self.workspace_action,
+            )
+            self.add_subview(self.workspace)
+        self.scroll.content_offset = (0, 0)
+        top = self.mode_control.y + self.mode_control.height + 8
+        # The footer is hidden in Build, so the workspace runs to the bottom.
+        self.workspace.frame = (0, top, self.width, max(100, self.height - top))
+        self.workspace.hidden = False
+        self.workspace.bring_to_front()
+        ready = self.report is not None and not self.busy
+        self.workspace.sync_results({
+            "busy": self.busy,
+            "status": self.status.text or "",
+            "ready": ready,
+            "answers": ready and any(item["mode"] == "answers" for item in self.report["pdfs"]),
+            "saved": self.saved_report is not None,
+        })
+
+    def workspace_changed(self, blocks, title):
+        """Every sheet change: keep it, save it, update the footer."""
+        self.build_blocks = blocks
+        if title and title.strip():
+            self.title_field.text = title.strip()
+        self.save()
+        self.refresh()
+
+    def workspace_settings(self, answers, theme_index):
+        self.answers.value = answers
+        self.theme_control.selected_index = theme_index
+        self.save()
+
+    def workspace_action(self, name):
+        """Run a preview action from the sheet using the footer's own buttons."""
+        button = {
+            "open_questions": self.open_questions,
+            "open_answers": self.open_answers,
+            "save": self.save_button,
+        }[name]
+        button.action(button)
+
+    # ------------------------------------------------------------ quick start
+
+    def quick_level_tags(self):
+        """Curriculum tags for every generator level, loaded on first use.
+
+        A tagging problem (such as a new generator missing from
+        curriculum_tags.json) shows in the status line instead of crashing.
+        """
+        if self.level_tags is None:
+            from .curriculum import load_level_tags
+            try:
+                self.level_tags = load_level_tags(self.registry)
+            except Exception as error:
+                self.status.text = "Quick start tags: " + str(error)
+                return []
+        return self.level_tags
+
+    def quick_choice_labels(self):
+        """Labels for the second picker row: year groups or grade bands."""
+        from .curriculum import GRADE_BANDS, YEAR_GROUPS
+        if self.quick_kind == "year":
+            return ["Y{}".format(year) for year in YEAR_GROUPS]
+        return [name.replace("Grades ", "") for name in GRADE_BANDS]
+
+    def quick_target(self):
+        """(filter, label) for the chosen year group or grade band."""
+        from .curriculum import GRADE_BANDS
+        if self.quick_kind == "year":
+            return {"year": self.quick_year}, "Year {}".format(self.quick_year)
+        return {"grades": GRADE_BANDS[self.quick_band]}, self.quick_band
+
+    def sync_quick_controls(self):
+        """Show the stored quick-start choice in both picker rows."""
+        from .curriculum import GRADE_BANDS, YEAR_GROUPS
+        self.quick_kind_control.selected_index = 0 if self.quick_kind == "year" else 1
+        labels = self.quick_choice_labels()
+        if list(self.quick_choice_control.segments) != labels:
+            self.quick_choice_control.segments = labels
+        self.quick_choice_control.selected_index = (
+            YEAR_GROUPS.index(self.quick_year) if self.quick_kind == "year"
+            else list(GRADE_BANDS).index(self.quick_band))
+
+    def change_quick(self, sender):
+        from .curriculum import GRADE_BANDS, YEAR_GROUPS
+        if sender is self.quick_kind_control:
+            self.quick_kind = ("year", "grade")[sender.selected_index]
+        elif self.quick_kind == "year":
+            self.quick_year = YEAR_GROUPS[sender.selected_index]
+        else:
+            self.quick_band = list(GRADE_BANDS)[sender.selected_index]
+        self.settings_changed(sender)
+
+    def subject_detail(self, topic):
+        """Subject card detail; in quick start, the skills that suit the choice."""
+        if self.mode != "mini":
+            return "{} skills".format(sum(info.topic == topic for info in self.infos))
+        from .curriculum import suitable_levels
+        target, label = self.quick_target()
+        pool = suitable_levels(self.quick_level_tags(), {topic}, **target)
+        return "{} skills for {}".format(len({tag.generator_id for tag in pool}), label)
 
     def toggle_subject(self, sender):
         if sender.name in self.mini_subjects:
@@ -775,25 +1097,32 @@ class WorksheetBuilder(ui.View):
         self.search_field.end_editing()
         mini = self.mode == "mini"
         exam = self.mode == "exam"
+        drill = self.mode == "drill"
         tier, paper = self.exam_tier, self.exam_paper
         try:
             title = self.title_field.text.strip()
             if exam:
                 spec = None
-            elif mini:
-                total = int(self.count_field.text)
-                if total < 1:
-                    raise ValueError("Enter a positive total number of questions.")
-                if not self.mini_subjects:
-                    raise ValueError("Include at least one subject.")
+            elif drill:
                 if not title:
                     raise ValueError("Enter a worksheet title.")
-                levels, subjects, spec = sorted(self.levels), sorted(self.mini_subjects), None
-            else:
-                spec = make_spec(
-                    self.registry, self.selected, int(self.count_field.text),
-                    self.levels, self.title_field.text, self.order.selected_index == 1,
+                blocks = make_drill_blocks(
+                    self.registry, self.drill_selected,
+                    int(self.count_field.text), self.levels, self.drill_apply,
                 )
+                spec = None
+            elif mini:
+                from .curriculum import quick_start_spec
+                spec = quick_start_spec(
+                    self.registry, sorted(self.mini_subjects),
+                    int(self.count_field.text), title, secrets.randbits(53),
+                    level_tags=self.quick_level_tags(), **self.quick_target()[0],
+                )
+            else:
+                if not self.build_blocks:
+                    raise ValueError("Add at least one block with Edit sheet.")
+                spec = None
+                blocks = list(self.build_blocks)
         except Exception as error:
             self.status.text = str(error)
             return
@@ -812,14 +1141,15 @@ class WorksheetBuilder(ui.View):
                 if exam:
                     from .exam_paper import build_exam_paper
                     worksheet = build_exam_paper(self.registry, tier, paper, seed)
-                elif mini:
-                    from .mini_paper import build_mini_paper
-                    worksheet = build_mini_paper(
-                        self.registry, total, levels, subjects, title, seed,
-                    )
-                else:
+                elif drill:
+                    from .drill import build_drill
+                    worksheet = build_drill(self.registry, blocks, title, seed)
+                elif spec is not None:
                     from .worksheets import build_worksheet
                     worksheet = build_worksheet(spec, seed, self.registry)
+                else:
+                    from .blocks import build_block_sheet
+                    worksheet = build_block_sheet(self.registry, blocks, title, seed)
                 # One place sets the PDF theme, for skill sets and mini papers alike.
                 from dataclasses import replace as with_changes
                 worksheet = with_changes(worksheet, specification=dict(

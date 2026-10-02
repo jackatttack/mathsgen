@@ -31,7 +31,8 @@ def save_preview(report, output_root):
         path = Path(item["path"]).resolve()
         if path.parent != source or not path.is_file():
             raise ValueError("Preview PDF is missing or outside its folder")
-        files.append((path, mode + ".pdf"))
+        # Keep the readable name given at export (older previews: questions.pdf).
+        files.append((path, path.name))
     if "questions" not in modes:
         raise ValueError("Preview has no question PDF")
     manifest = Path(report["teacher_manifest"]).resolve()
@@ -41,7 +42,9 @@ def save_preview(report, output_root):
 
     root = Path(output_root)
     root.mkdir(parents=True, exist_ok=True)
-    destination = Path(tempfile.mkdtemp(prefix="saved_worksheet_", dir=str(root)))
+    # The export folder is "<name>_<random>"; reuse the readable name.
+    readable = source.name.rsplit("_", 1)[0]
+    destination = Path(tempfile.mkdtemp(prefix=readable + "_saved_", dir=str(root)))
     try:
         for path, filename in files:
             shutil.copyfile(str(path), str(destination / filename))
@@ -49,7 +52,7 @@ def save_preview(report, output_root):
         saved["directory"] = str(destination)
         saved["teacher_manifest"] = str(destination / "teacher_manifest.json")
         for item in saved["pdfs"]:
-            item["path"] = str(destination / (item["mode"] + ".pdf"))
+            item["path"] = str(destination / Path(item["path"]).name)
         saved["storage"] = "saved"
         with (destination / "export_report.json").open("w", encoding="utf-8") as output:
             json.dump(saved, output, indent=2, ensure_ascii=False)

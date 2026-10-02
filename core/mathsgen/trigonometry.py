@@ -31,7 +31,7 @@ from . import figures
 
 
 INFO = GeneratorInfo(
-    id="geometry.trigonometry.right_angled", version=4,
+    id="geometry.trigonometry.right_angled", version=5,
     topic="geometry", subtopic="trigonometry",
     title="Trigonometry in right-angled triangles",
     difficulty_descriptions={
@@ -206,7 +206,19 @@ def answer_for(p):
 class RightAngledTrigonometry:
     info = INFO
 
+    # Version 5 mixes in equal-ratio problems (trig_ratio_contexts.py): one
+    # triangle (L2), two triangles linear (L3) and quadratic (L4). Bare
+    # questions keep their old seeds: generate_bare() builds its own context.
+
     def generate(self, seed, difficulty=1, settings=None):
+        from . import trig_ratio_contexts as worded_forms
+        context = make_context(self.info, seed, difficulty, settings)
+        require(not context.settings, "This generator accepts no settings")
+        if context.rng.random() < worded_forms.context_share(difficulty):
+            return worded_forms.generate(self, context)
+        return self.generate_bare(seed, difficulty, settings)
+
+    def generate_bare(self, seed, difficulty=1, settings=None):
         context = make_context(self.info, seed, difficulty, settings)
         require(not context.settings, "This generator accepts no settings")
         rng = context.rng
@@ -273,6 +285,10 @@ class RightAngledTrigonometry:
         return True
 
     def validate(self, q):
+        from .worded import is_worded
+        if is_worded(q):
+            from .trig_ratio_contexts import validate as validate_worded
+            return validate_worded(self, q)
         require(q.generator_id == self.info.id, "Generator mismatch")
         require(q.generator_version == self.info.version, "Version mismatch")
         level = q.difficulty
@@ -323,6 +339,11 @@ class RightAngledTrigonometry:
         return True
 
     def validate_independently(self, q):
+        """Applied forms: trig_ratio_contexts; bare questions: see below."""
+        from .worded import is_worded
+        if is_worded(q):
+            from .trig_ratio_contexts import validate_independently as independent
+            return independent(q)
         """Rebuild the triangle from a different relationship.
 
         Where the generator reaches a side through one ratio, this check

@@ -378,7 +378,7 @@ register_tool(TeacherTool(
     kind="formula",
     supports=lambda question: (
         question.generator_id == "geometry.trigonometry.right_angled"
-        and question.generator_version == 4
+        and question.generator_version in (4, 5)
     ),
     build=trigonometry_formulas,
 ))

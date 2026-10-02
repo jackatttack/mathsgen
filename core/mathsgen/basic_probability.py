@@ -14,7 +14,7 @@ from .core import (
 
 
 INFO = GeneratorInfo(
-    id="probability.basics.events", version=1,
+    id="probability.basics.events", version=2,
     topic="probability", subtopic="basic_events",
     title="Basic probability: complements, tables and sample spaces",
     difficulty_descriptions={
@@ -305,7 +305,19 @@ def draw_parameters(rng, form):
 class BasicProbability:
     info = INFO
 
+    # Version 2 mixes in counting-in-a-bag problems (bag_contexts.py). Bare
+    # complement questions store an integer "context", so applied questions
+    # are recognised with bag_contexts.is_applied().
+
     def generate(self, seed, difficulty=1, settings=None):
+        from . import bag_contexts as worded_forms
+        context = make_context(self.info, seed, difficulty, settings)
+        require(not context.settings, "This generator accepts no settings")
+        if context.rng.random() < worded_forms.context_share(difficulty):
+            return worded_forms.generate(self, context)
+        return self.generate_bare(seed, difficulty, settings)
+
+    def generate_bare(self, seed, difficulty=1, settings=None):
         context = make_context(self.info, seed, difficulty, settings)
         require(not context.settings, "This generator accepts no settings")
         rng = context.rng
@@ -334,6 +346,9 @@ class BasicProbability:
         return q
 
     def validate(self, q):
+        from .bag_contexts import is_applied, validate as validate_worded
+        if is_applied(q):
+            return validate_worded(self, q)
         require(q.generator_id == self.info.id, "Generator mismatch")
         require(q.generator_version == self.info.version, "Version mismatch")
         require(type(q.difficulty) is int and q.difficulty in (1, 2, 3, 4), "Invalid difficulty")
@@ -348,6 +363,9 @@ class BasicProbability:
     def validate_independently(self, q):
         """Complements and table totals by addition; sample spaces by closed-form
         counting; algebraic answers substituted back so the table totals 1."""
+        from .bag_contexts import is_applied, validate_independently as independent_worded
+        if is_applied(q):
+            return independent_worded(q)
         par, answer = q.parameters, q.answer
         form = par.get("form")
         if form == "complement_decimal":

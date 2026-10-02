@@ -47,12 +47,12 @@ def prompt_for(rate, direction, given_pence, change_only):
 class ReversePercentage:
     info = GeneratorInfo(
         id="number.percentages.reverse",
-        version=2,
+        version=3,
         topic="number",
         subtopic="percentages",
         title="Find an original price from a percentage change",
         difficulty_descriptions={
-            1: "Recover an original price after a familiar percentage discount.",
+            1: "Recover an original price after a familiar discount, non-calculator numbers.",
             2: "Recover an original price after a percentage increase.",
             3: "Reverse a change with a fractional percentage; or VAT and pay-rise contexts.",
             4: "Recover the original from the change alone; or undo two successive changes.",
@@ -71,11 +71,19 @@ class ReversePercentage:
         direction = -1 if difficulty == 1 else (
             1 if difficulty == 2 else rng.choice((-1, 1))
         )
-        # Whole-pound originals; only retain exact whole-penny changes.
-        candidates = [
-            pounds * 100 for pounds in range(12, 401)
-            if (Fraction(pounds) * rate).denominator == 1
-        ]
+        if difficulty == 1:
+            # Non-calculator: a £10-step original up to £200 and a whole-pound
+            # change, so one mental step recovers it (80% = £64, 10% = £8).
+            candidates = [
+                pounds * 100 for pounds in range(20, 201, 10)
+                if (pounds * rate) % 100 == 0
+            ]
+        else:
+            # Whole-pound originals; only retain exact whole-penny changes.
+            candidates = [
+                pounds * 100 for pounds in range(12, 401)
+                if (Fraction(pounds) * rate).denominator == 1
+            ]
         original = rng.choice(candidates)
         change = Fraction(original) * rate / 100
         require(change.denominator == 1, "Construction produced fractional pence")
@@ -136,6 +144,10 @@ class ReversePercentage:
         require(type(original) is int and 1200 <= original <= 40000,
                 "Original price outside bounds")
         require(original % 100 == 0, "Expected whole-pound original")
+        if level == 1:
+            require(original % 1000 == 0 and original <= 20000
+                    and (Fraction(original) * rate / 100) % 100 == 0,
+                    "Level 1 numbers must work without a calculator")
         require(question.answer == {
             "kind": "money", "currency": "GBP", "pence": original,
         }, "Invalid money answer")

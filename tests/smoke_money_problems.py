@@ -57,7 +57,9 @@ def main():
     for level in (1, 2, 3, 4):
         prompts, forms, decisions = set(), {}, {}
         for seed in range(SEEDS):
-            q = generator.generate(seed, level)
+            # Bare questions only: applied forms (v2) are covered by
+            # tests/smoke_inbox_batch2_contexts.py.
+            q = generator.generate_bare(seed, level)
             generator.validate_independently(q)
             prompts.add(q.prompt.text)
             form = q.parameters["form"]
@@ -70,13 +72,13 @@ def main():
             altered, _ = bump_first_int(json.loads(json.dumps(q.parameters)))
             rejects(generator, replace(q, parameters=altered), "altered parameters")
         for seed in SPECIMEN_SEEDS:
-            specimen.append(generator.generate(seed, level))
+            specimen.append(generator.generate_bare(seed, level))
         sample = specimen[-1]
         print("L{} ({} distinct / {}, forms {}, yes/no {}): {} -> {}".format(
             level, len(prompts), SEEDS, forms, decisions,
             sample.prompt.text, sample.answer_display.text))
 
-    export_root = Path(__file__).resolve().parent.parent / "exports"
+    export_root = Path(__file__).resolve().parent.parent / "exports" / "specimens"
     export_root.mkdir(exist_ok=True)
     directory = Path(tempfile.mkdtemp(prefix="money_problems_", dir=str(export_root)))
     worksheet = SimpleNamespace(title="Money problems specimen", id="money-problems-specimen",

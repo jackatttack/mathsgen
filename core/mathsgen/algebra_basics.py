@@ -13,7 +13,7 @@ from collections import namedtuple
 from fractions import Fraction
 from math import isqrt
 
-from .core import Content, GeneratorInfo, rational_text, require
+from .core import Content, GeneratorInfo, make_context, rational_text, require
 from .family import GeneratorFamily
 from . import rich_blocks as rb
 
@@ -158,7 +158,7 @@ def statement(instruction, plain, tex):
 class LikeTerms(GeneratorFamily):
     info = GeneratorInfo(
         id="algebra.expressions.like_terms",
-        version=1,
+        version=2,
         topic="algebra",
         subtopic="simplifying_expressions",
         title="Simplify by collecting like terms",
@@ -221,7 +221,30 @@ class LikeTerms(GeneratorFamily):
             "working_lines": {1: 2, 2: 3, 3: 3, 4: 4}[level],
         }
 
+    # Version 2 mixes in applied forms (like_terms_contexts.py): perimeters,
+    # a missing side and algebra pyramids. Bare questions are unchanged.
+
+    def generate(self, seed, difficulty=1, settings=None):
+        from .like_terms_contexts import context_share, generate as generate_worded
+        context = make_context(self.info, seed, difficulty, settings)
+        if context.settings:
+            raise ValueError("This generator currently accepts no settings")
+        if context.rng.random() < context_share(difficulty):
+            return generate_worded(self, context)
+        return GeneratorFamily.generate(self, seed, difficulty, settings)
+
+    def validate(self, question):
+        from . import worded
+        if worded.is_worded(question):
+            from .like_terms_contexts import validate as validate_worded
+            return validate_worded(self, question)
+        return GeneratorFamily.validate(self, question)
+
     def validate_independently(self, question):
+        from . import worded
+        if worded.is_worded(question):
+            from .like_terms_contexts import validate_independently as independent_worded
+            return independent_worded(question)
         require_simplified(sympy_terms(question.parameters["terms"]), question.answer["terms"])
         return True
 

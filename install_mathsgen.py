@@ -1,20 +1,44 @@
-"""Install MathsGen from its public GitHub snapshot into Pythonista Documents."""
+"""Install or update MathsGen from its public GitHub snapshot.
+
+Run it through the bootstrap script. Running the bootstrap again at any time
+updates to the current GitHub release, with no questions asked:
+
+- saved worksheets, settings, saved setups and feedback carry into the new
+  install;
+- the previous install is kept as a dated backup, and only the newest
+  KEEP_BACKUPS backups are kept;
+- if the installed version already matches GitHub, nothing is changed.
+
+A new student needs only the bootstrap: the first run installs everything.
+"""
 import io
 import os
 from pathlib import Path, PurePosixPath
 import shutil
 import stat
+import sys
 import tempfile
 from datetime import datetime
 from urllib.request import urlopen
 from zipfile import ZipFile
 
 
+# ------------------------------------------------------------ editable settings
+
 ARCHIVE_URL = "https://github.com/jackatttack/mathsgen/archive/refs/heads/main.zip"
 INSTALL_NAME = "mathsgen"
+VERSION_FILE = "RELEASE_VERSION.txt"
+KEEP_BACKUPS = 2
+# User data carried from the old install into the new one.
+USER_FOLDERS = ("exports", "feedback", "saved_setups")
+USER_FILES = ("worksheet_ui_settings.json", "launcher_settings.json")
+
+# ------------------------------------------------------------ safety limits
+
 MAX_DOWNLOAD_BYTES = 32 * 1024 * 1024
 MAX_UNPACKED_BYTES = 80 * 1024 * 1024
 MAX_FILE_BYTES = 12 * 1024 * 1024
+BACKUP_PREFIX = INSTALL_NAME + "_backup_"
 
 
 def pythonista_documents():
@@ -89,32 +113,53 @@ def unpack_release(archive, destination):
     return len(members)
 
 
+def installed_version(folder):
+    """The release stamp in a folder, or None if it has none."""
+    path = folder / VERSION_FILE
+    if path.is_file():
+        text = path.read_text(encoding="utf-8").strip()
+        return text or None
+    return None
+
+
 def preserve_user_data(old_install, new_install):
     """Carry user files forward while leaving the old install as a backup."""
-    for name in ("exports", "feedback", "saved_setups"):
+    for name in USER_FOLDERS:
         old = old_install / name
         if old.is_dir():
-            shutil.copytree(str(old), str(new_install / name))
-    for name in ("worksheet_ui_settings.json", "launcher_settings.json"):
+            shutil.copytree(str(old), str(new_install / name), dirs_exist_ok=True)
+    for name in USER_FILES:
         old = old_install / name
         if old.is_file():
             shutil.copy2(str(old), str(new_install / name))
+
+
+def prune_backups(documents):
+    """Delete all but the newest KEEP_BACKUPS backups. Returns how many went."""
+    backups = sorted(
+        path for path in documents.iterdir()
+        if path.is_dir() and path.name.startswith(BACKUP_PREFIX)
+    )
+    stale = backups[:-KEEP_BACKUPS] if KEEP_BACKUPS else backups
+    for path in stale:
+        shutil.rmtree(str(path), ignore_errors=True)
+    return len(stale)
+
+
+def forget_loaded_code():
+    """Drop MathsGen modules already loaded in this Pythonista session."""
+    for name in list(sys.modules):
+        if name in ("mathsgen", "launch_mathsgen") or name.startswith("mathsgen."):
+            del sys.modules[name]
 
 
 def main():
     documents = pythonista_documents()
     check_dependencies()
     target = documents / INSTALL_NAME
-    if target.exists():
-        response = input(
-            "MathsGen already exists. Back it up and install the new version? "
-            "Type UPDATE to continue: "
-        ).strip()
-        if response != "UPDATE":
-            print("Installation cancelled. Existing files were untouched.")
-            return
+    old_version = installed_version(target) if target.exists() else None
 
-    print("Downloading MathsGen...")
+    print("Checking GitHub for the latest MathsGen...")
     archive = download_archive()
     temporary_root = Path(tempfile.mkdtemp(
         prefix=".mathsgen_install_", dir=str(documents)
@@ -124,12 +169,18 @@ def main():
     try:
         candidate.mkdir()
         count = unpack_release(archive, candidate)
+        new_version = installed_version(candidate)
+        if (target.exists() and new_version and new_version == old_version
+                and (target / "core/mathsgen/catalogue.py").is_file()):
+            print("MathsGen is already up to date ({}).".format(new_version))
+            print("Open mathsgen/launch_mathsgen.py and tap Run.")
+            return
         if target.exists():
             preserve_user_data(target, candidate)
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup = documents / (INSTALL_NAME + "_backup_" + stamp)
+            backup = documents / (BACKUP_PREFIX + stamp)
             if backup.exists():
-                raise RuntimeError("Backup name already exists; retry in one second.")
+                raise RuntimeError("Backup name already exists; run again in a second.")
             os.replace(str(target), str(backup))
         try:
             os.replace(str(candidate), str(target))
@@ -141,10 +192,20 @@ def main():
         archive.close()
         shutil.rmtree(str(temporary_root), ignore_errors=True)
 
-    print("Installed {} files at {}".format(count, target))
-    if backup is not None:
-        print("Previous install backed up at {}".format(backup))
-    print("Open mathsgen/launch_mathsgen.py in Pythonista and tap Run.")
+    removed = prune_backups(documents)
+    forget_loaded_code()
+    if backup is None:
+        print("Installed MathsGen {} ({} files) at {}".format(
+            new_version or "", count, target))
+    else:
+        print("Updated MathsGen from {} to {}.".format(
+            old_version or "an earlier version", new_version or "the latest version"))
+        print("Your saved worksheets and settings were kept.")
+        print("Previous install backed up at {}".format(backup.name))
+        if removed:
+            print("Removed {} older backup{}.".format(removed, "" if removed == 1 else "s"))
+    print("Open mathsgen/launch_mathsgen.py and tap Run.")
+    print("If anything still looks old, close Pythonista fully and reopen it.")
 
 
 if __name__ == "__main__":

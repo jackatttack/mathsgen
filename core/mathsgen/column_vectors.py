@@ -9,7 +9,7 @@ from .core import Content, GeneratorInfo, LayoutHint, Question, make_context, re
 
 
 INFO = GeneratorInfo(
-    id="geometry.vectors.column", version=1,
+    id="geometry.vectors.column", version=2,
     topic="geometry", subtopic="column_vectors",
     title="Column vectors: add, subtract, multiply and solve",
     difficulty_descriptions={
@@ -245,7 +245,19 @@ def draw_parameters(rng, form):
 class ColumnVectors:
     info = INFO
 
+    # Version 2 mixes in points on a line (vector_contexts.py): a midpoint
+    # end, dividing in a ratio, extending in a ratio. Bare questions keep
+    # their old seeds because generate_bare() builds its own context.
+
     def generate(self, seed, difficulty=1, settings=None):
+        from . import vector_contexts as worded_forms
+        context = make_context(self.info, seed, difficulty, settings)
+        require(not context.settings, "This generator accepts no settings")
+        if context.rng.random() < worded_forms.context_share(difficulty):
+            return worded_forms.generate(self, context)
+        return self.generate_bare(seed, difficulty, settings)
+
+    def generate_bare(self, seed, difficulty=1, settings=None):
         context = make_context(self.info, seed, difficulty, settings)
         require(not context.settings, "This generator accepts no settings")
         rng = context.rng
@@ -274,6 +286,10 @@ class ColumnVectors:
         return q
 
     def validate(self, q):
+        from .worded import is_worded
+        if is_worded(q):
+            from .vector_contexts import validate as validate_worded
+            return validate_worded(self, q)
         require(q.generator_id == self.info.id, "Generator mismatch")
         require(q.generator_version == self.info.version, "Version mismatch")
         require(type(q.difficulty) is int and q.difficulty in (1, 2, 3, 4), "Invalid difficulty")
@@ -287,6 +303,10 @@ class ColumnVectors:
 
     def validate_independently(self, q):
         """Repeated addition, translating back, and Cramer's rule for p and q."""
+        from .worded import is_worded
+        if is_worded(q):
+            from .vector_contexts import validate_independently as independent_worded
+            return independent_worded(q)
         par, answer = q.parameters, q.answer
         form = par.get("form")
         if form == "scalars":

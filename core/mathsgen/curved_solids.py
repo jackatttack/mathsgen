@@ -24,7 +24,7 @@ from .core import (
 
 
 INFO = GeneratorInfo(
-    id="geometry.volume.curved_solids", version=1,
+    id="geometry.volume.curved_solids", version=2,
     topic="geometry", subtopic="curved_solids",
     title="Cones, spheres, pyramids and frustums",
     difficulty_descriptions={
@@ -372,7 +372,19 @@ def draw_parameters(rng, form):
 class CurvedSolids:
     info = INFO
 
+    # Version 2 mixes in solids on a hemisphere (composite_solids_contexts.py):
+    # cone volume (L1), reverse total height (L3), frustum density (L4).
+    # Bare questions keep their old seeds: generate_bare() builds its own context.
+
     def generate(self, seed, difficulty=1, settings=None):
+        from . import composite_solids_contexts as worded_forms
+        context = make_context(self.info, seed, difficulty, settings)
+        require(not context.settings, "This generator accepts no settings")
+        if context.rng.random() < worded_forms.context_share(difficulty):
+            return worded_forms.generate(self, context)
+        return self.generate_bare(seed, difficulty, settings)
+
+    def generate_bare(self, seed, difficulty=1, settings=None):
         context = make_context(self.info, seed, difficulty, settings)
         require(not context.settings, "This generator accepts no settings")
         rng = context.rng
@@ -403,6 +415,10 @@ class CurvedSolids:
         return q
 
     def validate(self, q):
+        from .worded import is_worded
+        if is_worded(q):
+            from .composite_solids_contexts import validate as validate_worded
+            return validate_worded(self, q)
         require(q.generator_id == self.info.id, "Generator mismatch")
         require(q.generator_version == self.info.version, "Version mismatch")
         require(type(q.difficulty) is int and q.difficulty in (1, 2, 3, 4), "Invalid difficulty")
@@ -418,6 +434,10 @@ class CurvedSolids:
 
     def validate_independently(self, q):
         """Simpson-rule volumes and surfaces of revolution, never the formulae."""
+        from .worded import is_worded
+        if is_worded(q):
+            from .composite_solids_contexts import validate_independently as independent
+            return independent(q)
         par, answer = q.parameters, q.answer
         form = par.get("form")
 

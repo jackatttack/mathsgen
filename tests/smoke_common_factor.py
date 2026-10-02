@@ -32,7 +32,9 @@ def main():
 
     for level in range(1, 5):
         for seed in range(SEEDS):
-            question = generator.generate(seed, level)
+            # Bare questions only: applied forms (v3) have their own smoke,
+            # tests/smoke_common_factor_contexts.py.
+            question = generator.generate_bare(seed, level)
             checked += 1
             answer = question.answer
             letters = [
@@ -65,7 +67,7 @@ def main():
 
     # Corruption: a perturbed factor or a wrong inner term must be rejected.
     for level in range(1, 5):
-        question = generator.generate(5, level)
+        question = generator.generate_bare(5, level)
         wrong_factor = dict(question.answer, factor=question.answer["factor"] + 1)
         try:
             generator.validate(replace(question, answer=wrong_factor))

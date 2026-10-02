@@ -33,7 +33,7 @@ def main():
     for level in range(1, 5):
         orientations = set()
         for seed in range(40):
-            question = generator.generate(seed, level)
+            question = generator.generate_bare(seed, level)
             assert "horizontal side" not in question.prompt.text
             assert "vertical side" not in question.prompt.text
             assert "slanted side" not in question.prompt.text

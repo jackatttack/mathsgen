@@ -15,7 +15,7 @@ def main():
     from mathsgen.catalogue import source_registry
     registry = source_registry(registry)
     from mathsgen.core import require
-    from mathsgen.proportion import DirectProportion, InverseProportion
+    from mathsgen.proportion import DirectProportion, InverseProportion, Proportion
 
     require(DirectProportion.apply(5, 4, 1) == 20, "Direct failed")
     require(DirectProportion.apply(3, 4, 2) == 48, "Direct square failed")
@@ -27,7 +27,9 @@ def main():
         generator = registry.get(generator_id)
         for level in range(1, 5):
             for seed in (5, 66, 777):
-                question = generator.generate(seed, level)
+                # Bare questions only: workers problems (inverse v3) are
+                # covered by tests/smoke_inbox_batch2_contexts.py.
+                question = Proportion.generate(generator, seed, level)
                 generator.validate_independently(question)
             # Perturb the real answer rather than substituting a constant:
             # a fixed value can coincide with the true one and make the

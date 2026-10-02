@@ -13,13 +13,13 @@ from .nth_term import LinearNthTerm, QuadraticNthTerm
 
 INFO = GeneratorInfo(
     id="algebra.sequences.linear_nth",
-    version=3,
+    version=4,
     topic="algebra",
     subtopic="sequences",
     title="Sequences: linear, quadratic and geometric",
     difficulty_descriptions={
-        1: "Find the nth term of an arithmetic sequence, increasing or decreasing.",
-        2: "Fractional common differences; continue a geometric sequence or find its ratio, nth term or a term.",
+        1: "Find the nth term of an arithmetic sequence, increasing or decreasing; sometimes use it to find the 100th term.",
+        2: "Fractional common differences (sometimes find the 100th term); continue a geometric sequence or find its ratio, nth term or a term.",
         3: "Find the nth term of a quadratic sequence; find a geometric first term or a surd-sequence term.",
         4: "Geometric problems: find x from three terms, or the first term above a limit.",
     },

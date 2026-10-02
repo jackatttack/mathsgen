@@ -11,15 +11,15 @@ from .proportion import DirectProportion, InverseProportion
 
 INFO = GeneratorInfo(
     id="ratio.proportion.direct",
-    version=3,
+    version=4,
     topic="ratio",
     subtopic="proportion",
     title="Direct and inverse proportion",
     difficulty_descriptions={
-        1: "Direct or inverse proportion with a whole-number constant.",
-        2: "A larger constant, or an inverse answer that is an exact fraction.",
-        3: "Proportional or inversely proportional to a square.",
-        4: "Square relationships with a larger constant or a fractional answer.",
+        1: "Direct or inverse proportion with a whole-number constant; or workers and days.",
+        2: "A larger constant or exact fractional answer; or beat a deadline with workers.",
+        3: "Proportional or inversely proportional to a square; or workers join partway.",
+        4: "Square relationships with a fractional answer; or the least workforce needed.",
     },
     tags=("proportion", "direct", "inverse", "constant_of_proportionality"),
 )

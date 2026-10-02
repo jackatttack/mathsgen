@@ -364,17 +364,44 @@ class NegativeNumbers(ExpressionFamily):
 class OrderOfOperations(ExpressionFamily):
     info = GeneratorInfo(
         id="number.operations.order",
-        version=1,
+        version=2,
         topic="number",
         subtopic="order_of_operations",
         title="Use the order of operations",
         difficulty_descriptions={
-            1: "Multiply or divide before adding or subtracting.",
-            2: "Brackets first, including three operations.",
-            3: "Powers with multiplication, division and brackets.",
-            4: "Fraction bars, nested brackets and squared negatives.",
+            1: "Multiply or divide before adding or subtracting; or insert brackets.",
+            2: "Brackets first, including three operations; or spot an error.",
+            3: "Powers with multiplication, division and brackets; or harder brackets.",
+            4: "Fraction bars, nested brackets and squared negatives; or explain a mistake.",
         },
         tags=("order_of_operations", "bidmas", "priority_of_operations"),
     )
     TEMPLATES = ORDER_TEMPLATES
     MARKS = {1: 1, 2: 2, 3: 2, 4: 3}
+
+    # Version 2 mixes in applied forms (order_contexts.py): bracket puzzles
+    # and misconceptions to explain. Bare questions keep their old seeds.
+
+    def generate(self, seed, difficulty=1, settings=None):
+        from .core import make_context
+        from . import order_contexts as worded_forms
+        context = make_context(self.info, seed, difficulty, settings)
+        if context.settings:
+            raise ValueError("This generator currently accepts no settings")
+        if context.rng.random() < worded_forms.context_share(difficulty):
+            return worded_forms.generate(self, context)
+        return ExpressionFamily.generate(self, seed, difficulty, settings)
+
+    def validate(self, question):
+        from .worded import is_worded
+        if is_worded(question):
+            from .order_contexts import validate as validate_worded
+            return validate_worded(self, question)
+        return ExpressionFamily.validate(self, question)
+
+    def validate_independently(self, question):
+        from .worded import is_worded
+        if is_worded(question):
+            from .order_contexts import validate_independently as independent_worded
+            return independent_worded(question)
+        return ExpressionFamily.validate_independently(self, question)

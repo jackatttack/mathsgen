@@ -352,6 +352,53 @@ def frustum_scene(radius, height, scale, radius_label=None):
     return scene(nodes, scene_height)
 
 
+def topped_hemisphere_scene(radius, cone_height, scale=None, width_label=None,
+                            total_label=None, top_label=None):
+    """A cone, or a frustum, standing on a hemisphere of the same radius.
+
+    The hemisphere hangs below the shared rim. With scale None the cone runs
+    to its apex; otherwise the top scale fraction of the cone (by height) is
+    removed, its top rim drawn and the removed tip dashed. Labels: the rim's
+    diameter, the total height (hemisphere bottom to solid top) and the
+    height above the rim, each optional.
+    """
+    ry = radius * ELLIPSE_RATIO
+    left_reach = radius * (LABEL_REACH if (total_label or top_label) else 1)
+    right_reach = radius * (LABEL_REACH if width_label else 1)
+    place, scene_height = fit([(-left_reach, -radius), (right_reach, cone_height)])
+    centre, apex = place((0, 0)), place((0, cone_height))
+    right, left = place((radius, 0)), place((-radius, 0))
+    bottom = place((0, -radius))
+    rx, ry_canvas = right[0] - centre[0], place((0, ry))[1] - centre[1]
+    nodes = [{"type": "arc", "center": figures.rounded(centre), "radius": round(rx, 2),
+              "start": 180, "sweep": 180}]
+    nodes += rim(centre, rx, ry_canvas, True) + rim(centre, rx, ry_canvas, False)
+    if scale is None:
+        nodes += [line(left, apex), line(right, apex)]
+        top_y = apex[1]
+    else:
+        top_centre = place((0, cone_height * (1 - scale)))
+        top_rx, top_ry = rx * scale, ry_canvas * scale
+        nodes.append({"type": "polygon", "points": [
+            figures.rounded(point) for point in ellipse(top_centre, top_rx, top_ry)]})
+        for sign in (-1, 1):
+            edge = (centre[0] + sign * rx, centre[1])
+            top_edge = (top_centre[0] + sign * top_rx, top_centre[1])
+            nodes.append(line(edge, top_edge))
+            nodes.append(line(top_edge, apex, dashed=True))
+        top_y = top_centre[1]
+    if width_label:
+        # The diameter across the rim, labelled outside the solid to the right
+        # as hemisphere_scene does: a label under the line sits on the rim.
+        nodes.append(line(left, right))
+        nodes.append(beside(right, width_label, 1))
+    if total_label:
+        nodes += dimension(left[0] - DIMENSION_GAP, bottom[1], top_y, total_label, -1)
+    if top_label:
+        nodes += dimension(left[0] - DIMENSION_GAP, centre[1], top_y, top_label, -1)
+    return scene(nodes, scene_height)
+
+
 def labels_ok(spec):
     """Clearance and rendering at every checked width (shared circle checks)."""
     from . import circle_figures

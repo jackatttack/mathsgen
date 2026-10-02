@@ -22,7 +22,7 @@ from .compound_interest import stated_money, to_nearest_penny
 
 
 INFO = GeneratorInfo(
-    id="number.percentages.simple_interest", version=1,
+    id="number.percentages.simple_interest", version=2,
     topic="number", subtopic="interest",
     title="Simple interest",
     difficulty_descriptions={
@@ -150,7 +150,19 @@ def answer_for(p):
 class SimpleInterest:
     info = INFO
 
+    # Version 2 mixes in interest-after-tax forms (interest_contexts.py).
+    # Bare questions store an integer "context" (wording choice), so applied
+    # questions are recognised with interest_contexts.is_applied().
+
     def generate(self, seed, difficulty=1, settings=None):
+        from . import interest_contexts as worded_forms
+        context = make_context(self.info, seed, difficulty, settings)
+        require(not context.settings, "This generator accepts no settings")
+        if context.rng.random() < worded_forms.context_share(difficulty):
+            return worded_forms.generate(self, context)
+        return self.generate_bare(seed, difficulty, settings)
+
+    def generate_bare(self, seed, difficulty=1, settings=None):
         context = make_context(self.info, seed, difficulty, settings)
         require(not context.settings, "This generator accepts no settings")
         rng = context.rng
@@ -166,6 +178,10 @@ class SimpleInterest:
             "rate": rational_text(Fraction(rng.choice(RATES[difficulty]))),
             "years": rng.choice(YEARS[difficulty]),
         }
+        if form == "comparison":
+            # The comparison wording does not use the account phrasing, so a
+            # fixed value stops a parameter from varying without effect.
+            p["context"] = 0
 
         prompt = presentation(p)
         answer, display = answer_for(p)
@@ -183,6 +199,10 @@ class SimpleInterest:
         return question
 
     def validate(self, q):
+        from .interest_contexts import is_applied
+        if is_applied(q):
+            from .interest_contexts import validate as validate_worded
+            return validate_worded(self, q)
         require(q.generator_id == self.info.id, "Generator mismatch")
         require(q.generator_version == self.info.version, "Version mismatch")
         level = q.difficulty
@@ -200,6 +220,8 @@ class SimpleInterest:
         }[level]
         require(p["form"] in expected, "Form does not match difficulty")
         require(p["context"] in range(len(ACCOUNTS)), "Unknown context")
+        require(p["form"] != "comparison" or p["context"] == 0,
+                "Comparison questions use the fixed wording")
 
         principal = p["principal_pence"]
         require(type(principal) is int and principal > 0
@@ -232,6 +254,13 @@ class SimpleInterest:
         return True
 
     def validate_independently(self, q):
+        from .interest_contexts import is_applied
+        if is_applied(q):
+            from .interest_contexts import validate_independently as independent_worded
+            return independent_worded(q)
+        return self.validate_independently_bare(q)
+
+    def validate_independently_bare(self, q):
         """Add the interest year by year instead of multiplying.
 
         Simple interest adds the same amount each year, so summing those

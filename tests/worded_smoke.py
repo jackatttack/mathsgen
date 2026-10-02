@@ -68,6 +68,10 @@ def run(registry, generator_id, expected_forms, title, prefix):
         for seed in range(SEEDS):
             q = generator.generate(seed, level)
             form = q.parameters.get("context", "equation")
+            if not isinstance(form, str):
+                # A bare form that uses "context" for something else
+                # (simple interest stores its wording choice there).
+                form = "equation"
             if independent.get(form, 0) < INDEPENDENT_PER_FORM:
                 generator.validate_independently(q)
                 independent[form] = independent.get(form, 0) + 1
@@ -93,7 +97,8 @@ def run(registry, generator_id, expected_forms, title, prefix):
             print("  [{}] {}".format(form, sample.prompt.text))
             print("      -> {}".format(sample.answer_display.text))
 
-    export_root = Path(__file__).resolve().parent.parent / "exports"
+    # Test specimens stay out of the way of real worksheets.
+    export_root = Path(__file__).resolve().parent.parent / "exports" / "specimens"
     export_root.mkdir(exist_ok=True)
     directory = Path(tempfile.mkdtemp(prefix=prefix, dir=str(export_root)))
     worksheet = SimpleNamespace(title=title, id=prefix.strip("_"),

@@ -9,7 +9,7 @@ QUADRATIC = "algebra.quadratic.factorisable_monic"
 TRIG = "geometry.trigonometry.right_angled"
 
 # Explicit versions prevent stale support silently attaching to changed models.
-SUPPORTED_VERSIONS = {LINEAR: 3, QUADRATIC: 1, TRIG: 4}
+SUPPORTED_VERSIONS = {LINEAR: 3, QUADRATIC: 1, TRIG: 5}
 
 
 @dataclass(frozen=True)
@@ -33,9 +33,13 @@ def make_card(title, blocks, visuals=()):
 
 
 def supports(question):
+    # Cards are written for bare questions and read their parameters, so
+    # worded (applied) forms, which store a "context" instead, get none.
+    from .worded import is_worded
     return (
         SUPPORTED_VERSIONS.get(question.generator_id) == question.generator_version
         and question.difficulty in (1, 2, 3, 4)
+        and not is_worded(question)
     )
 
 

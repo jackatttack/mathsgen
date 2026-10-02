@@ -264,6 +264,31 @@ class InverseProportion(Proportion):
     relationship = "inverse"
     contexts = INVERSE_CONTEXTS
 
+    # Version 3 mixes in workers problems (workers_contexts.py) at every
+    # level. Bare questions store a wording dict under "context", so applied
+    # questions are recognised with workers_contexts.is_applied().
+
+    def generate(self, seed, difficulty=1, settings=None):
+        from . import workers_contexts as worded_forms
+        context = make_context(self.info, seed, difficulty, settings)
+        if context.settings:
+            raise ValueError("This generator currently accepts no settings")
+        if context.rng.random() < worded_forms.context_share(difficulty):
+            return worded_forms.generate(self, context)
+        return Proportion.generate(self, seed, difficulty, settings)
+
+    def validate(self, question):
+        from .workers_contexts import is_applied, validate as validate_worded
+        if is_applied(question):
+            return validate_worded(self, question)
+        return Proportion.validate(self, question)
+
+    def validate_independently(self, question):
+        from .workers_contexts import is_applied, validate_independently as independent
+        if is_applied(question):
+            return independent(question)
+        return Proportion.validate_independently(self, question)
+
     def choose_context(self, rng, difficulty):
         """Workers against time is a linear inverse relationship.
 
@@ -304,7 +329,7 @@ class InverseProportion(Proportion):
             return step * rng.randint(1, min(highest, 12))
         return Proportion.pick_constant(rng, difficulty, given, target, power)
     info = GeneratorInfo(
-        id="ratio.proportion.inverse", version=2, topic="ratio",
+        id="ratio.proportion.inverse", version=3, topic="ratio",
         subtopic="proportion", title="Inverse proportion",
         difficulty_descriptions={
             1: "A whole-number constant with a whole-number answer.",
