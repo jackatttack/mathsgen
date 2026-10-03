@@ -44,6 +44,7 @@ from .topic_browser import topic_style
 DRILL_COLUMN_CHOICES = (3, 2, 1)  # tried in order; the first that fits wins
 APPLY_COLUMN_CHOICES = (2, 1)
 ITEM_LABEL_WIDTH = 26             # points reserved for "(a)" beside an item
+COLUMN_GUTTER = 12                # clear space before the next column's label
 DRILL_ROW_SPACE = 22              # space under each drill item
 DIAGRAM_ROW_SPACE = 48            # space under a row of diagram items
 APPLY_ROW_SPACE = 80              # working room under each applied problem
@@ -178,7 +179,15 @@ def make_cell(flowables, text, font, stacked):
 
 
 def inner_width(column_width, stacked):
-    return column_width if stacked else column_width - ITEM_LABEL_WIDTH
+    """Width an item's content may use.
+
+    Text items sit beside their "(a)" label and stop COLUMN_GUTTER short of
+    the next column's label. Stacked (diagram) items have the label above,
+    so nothing can collide and they keep the full column width.
+    """
+    if stacked:
+        return column_width
+    return column_width - ITEM_LABEL_WIDTH - COLUMN_GUTTER
 
 
 def question_cell(question, body, style, theme, column_width):
@@ -274,7 +283,11 @@ def grid_item(index, cell, column_width, label_style):
             colWidths=[ITEM_LABEL_WIDTH, column_width - ITEM_LABEL_WIDTH],
             hAlign="LEFT",
         )
-    item.setStyle(TableStyle(TIGHT))
+    # Text wraps short of the column edge, matching inner_width.
+    style = TIGHT if cell.stacked else TIGHT + [
+        ("RIGHTPADDING", (-1, 0), (-1, -1), COLUMN_GUTTER),
+    ]
+    item.setStyle(TableStyle(style))
     return item
 
 

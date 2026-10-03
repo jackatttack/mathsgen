@@ -54,6 +54,8 @@ ADDED_EDGE = GREEN
 PAPER_EDGE = BORDER
 CARD = SURFACE
 INK_MUTED = MUTED
+# Topic headers stay neutral: green is kept for skills that are on the sheet.
+from .ui_design import HEADER as HEADER_TILE  # noqa: E402
 
 TOPIC_COLOURS = dict.fromkeys(
     ("number", "algebra", "ratio", "geometry", "probability", "data",
@@ -187,7 +189,9 @@ class Workspace(ui.View):
         self.log.add("open Build with {} blocks".format(len(self.blocks)))
 
     def layout(self):
-        self.switch.frame = (12, 6, self.width - 24, 32)
+        # Narrower and shorter than the main mode tabs, so it reads as part of Build.
+        switch_width = min(self.width - 24, 300)
+        self.switch.frame = ((self.width - switch_width) / 2, 8, switch_width, 28)
         body = (0, SWITCH_HEIGHT, self.width, max(100, self.height - SWITCH_HEIGHT))
         self.board.frame = body
         self.sheet.frame = body
@@ -519,7 +523,7 @@ class HeaderRow(ui.View):
         topic = kind == "topic"
         self.size = 17 if topic else 15
         self.minimum = 46 if topic else 40
-        self.background_color = SELECTED if topic else GROUP_TILE
+        self.background_color = HEADER_TILE if topic else GROUP_TILE
         self.border_color = BORDER
         self.border_width = 1 if topic else 0
         self.corner_radius = RADIUS
@@ -527,8 +531,7 @@ class HeaderRow(ui.View):
         self.bar.background_color = colour if topic else GROUP_TILE
         self.bar.touch_enabled = False
         self.title_text = ("▾ " if opened else "▸ ") + title
-        self.title = text_label(self.title_text, self.size, colour if topic else TEXT,
-                                bold=True, lines=0)
+        self.title = text_label(self.title_text, self.size, TEXT, bold=True, lines=0)
         self.detail = text_label("", 13, MUTED)
         self.detail.alignment = ui.ALIGN_RIGHT
         for view in (self.bar, self.title, self.detail):
@@ -598,7 +601,9 @@ class SkillRow(ui.View):
         self.background_color = self.resting_colour()
         self.border_color = ADDED_EDGE if count else BORDER
         self.border_width = 1
-        self.mark.text = "✓" if count else "○"
+        # A plus says "add"; a circle read like a pick-one radio button.
+        self.mark.text = "✓" if count else "+"
+        self.mark.text_color = ADDED_EDGE if count else MUTED
 
     def touch_began(self, touch):
         self.background_color = TILE_PRESSED

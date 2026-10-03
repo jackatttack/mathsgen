@@ -127,7 +127,7 @@ def layout_builder(host):
         host.list_heading.frame = (left, y, width - 172, 34)
         host.select_all.frame = (left + width - 172, y, 96, 34)
         host.clear.frame = (left + width - 76, y, 76, 34)
-        host.select_all.title = "All shown" if drill else "Select all"
+        host.select_all.title = "Select shown" if drill else "Select all"
         host.clear.title = "Clear all"
         y += 40
     if drill:

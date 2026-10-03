@@ -424,8 +424,9 @@ class WorksheetBuilder(ui.View):
                 len(self.offered_levels(info)) * max(0, count)
                 + (DEFAULT_APPLY_ITEMS if self.drill_apply else 0)
                 for info in self.infos if info.id in self.drill_selected)
-            self.total_label.text = "{} skills · {} items".format(
-                len(self.drill_selected), total)
+            chosen = len(self.drill_selected)
+            self.total_label.text = "{} skill{} · {} items".format(
+                chosen, "" if chosen == 1 else "s", total)
             valid = valid and count <= MAXIMUM_ITEMS_PER_STAGE
             enabled = valid and bool(self.drill_selected) and bool(self.levels)
         elif self.mode == "mini":
@@ -435,8 +436,9 @@ class WorksheetBuilder(ui.View):
         elif self.mode == "build":
             from .build_model import block_size
             total = sum(block_size(block) for block in self.build_blocks)
-            self.total_label.text = "{} blocks · {} questions".format(
-                len(self.build_blocks), total)
+            blocks = len(self.build_blocks)
+            self.total_label.text = "{} block{} · {} questions".format(
+                blocks, "" if blocks == 1 else "s", total)
             enabled = bool(self.build_blocks)
         else:
             return
@@ -621,8 +623,9 @@ class WorksheetBuilder(ui.View):
                 if info.id in self.drill_selected:
                     items += len(self.offered_levels(info)) * max(count, 0)
                     items += DEFAULT_APPLY_ITEMS if self.drill_apply else 0
-            self.total_label.text = "{} skills · {} items".format(
-                len(self.drill_selected), items
+            chosen = len(self.drill_selected)
+            self.total_label.text = "{} skill{} · {} items".format(
+                chosen, "" if chosen == 1 else "s", items
             )
             self.apply_switch.value = self.drill_apply
             can_generate = bool(valid and self.drill_selected and self.levels)

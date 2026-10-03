@@ -8,6 +8,7 @@ from .topic_browser import topic_style as original_topic_style
 PAPER = "#F6F1E6"
 SURFACE = "#FFFCF5"
 GROUP = "#EEE9DD"
+HEADER = "#E4DCCB"   # topic headers: neutral beige, a step darker than GROUP
 BORDER = "#DCD5C6"
 INK = "#202420"
 MUTED = "#697267"
