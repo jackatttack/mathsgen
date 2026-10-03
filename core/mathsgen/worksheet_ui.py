@@ -6,12 +6,11 @@ import threading
 
 import ui
 
-from .topic_browser import groups_for, matches, topic_style
-
-
-ACCENT = "#315BE8"
-INK = "#182238"
-MUTED = "#64748B"
+from .topic_browser import groups_for, matches
+from .ui_design import (
+    GREEN as ACCENT, INK, MUTED, PAPER, SURFACE, BORDER, HEADING_FONT,
+    topic_style,
+)
 # PDF themes offered in the builder, in segment order (see theme.py).
 THEME_CHOICES = ("ivory",)
 
@@ -99,11 +98,11 @@ def field(text, placeholder):
     view.text = text
     view.placeholder = placeholder
     view.font = ("<System>", 16)
-    view.background_color = "white"
+    view.background_color = SURFACE
     view.text_color = INK
     view.corner_radius = 8
     view.border_width = 1
-    view.border_color = "#DFE5EF"
+    view.border_color = BORDER
     return view
 
 
@@ -111,7 +110,8 @@ class WorksheetBuilder(ui.View):
     def __init__(self, registry, root):
         super().__init__()
         self.name = "Worksheet Maker"
-        self.background_color = "#F3F5F9"
+        self.background_color = PAPER
+        self.tint_color = ACCENT
         self.registry = registry
         self.root = Path(root)
         self.state_path = self.root / "worksheet_ui_settings.json"
@@ -153,7 +153,9 @@ class WorksheetBuilder(ui.View):
         self.scroll.always_bounce_vertical = True
         self.add_subview(self.scroll)
 
-        self.heading = label("Build your worksheet", 24, True)
+        self.heading = label("MathsGen", 20, True)
+        self.heading.font = (HEADING_FONT, 20)
+        self.heading.text_color = ACCENT
         self.subtitle = label("Tick skills below. Each gets the same question count.", 12)
         self.subtitle.text_color = MUTED
         self.title_field = field("Maths Practice", "Worksheet title")
@@ -348,7 +350,7 @@ class WorksheetBuilder(ui.View):
             self.subject_rows[topic] = (row, name, detail, tick)
 
         self.footer = ui.View()
-        self.footer.background_color = "#F3F5F9"
+        self.footer.background_color = PAPER
         self.add_subview(self.footer)
         self.total_label = label("", 15, True)
         self.generate_button = button("Generate preview", self.generate)
@@ -365,205 +367,92 @@ class WorksheetBuilder(ui.View):
         self.open_questions.enabled = False
         self.open_answers.enabled = False
         self.save_button = button("Save worksheet", self.save_worksheet)
-        self.save_button.background_color = "white"
+        self.save_button.background_color = SURFACE
         self.save_button.enabled = False
         for view in (
             self.total_label, self.generate_button, self.status,
             self.open_questions, self.open_answers, self.save_button,
         ):
             self.footer.add_subview(view)
+        self.settings_open = False
+        self.drill_browser = None
+        self.settings_button = button("▸ Worksheet settings", self.toggle_settings)
+        self.settings_button.background_color = SURFACE
+        self.scroll.add_subview(self.settings_button)
+        self.count_slider = ui.Slider()
+        self.count_slider.tint_color = ACCENT
+        self.count_slider.action = self.slide_count
+        self.scroll.add_subview(self.count_slider)
+        # Persistent navigation stays above the scrolling mode content.
+        for control in (self.heading, self.mode_control):
+            self.scroll.remove_subview(control)
+            self.add_subview(control)
         self.restore()
         self.refresh()
 
     def layout(self):
-        width = min(max(self.width - 32, 240), 760)
-        left = (self.width - width) / 2
-        has_preview = self.report is not None
-        show_status = bool(self.status.text) or self.busy
-        footer_height = 214 if has_preview else (132 if show_status else 96)
-        self.status.hidden = not show_status
-        for control in (self.open_questions, self.open_answers, self.save_button):
-            control.hidden = not has_preview
-        self.scroll.frame = (0, 0, self.width, max(100, self.height - footer_height))
-        mini = self.mode == "mini"
-        exam = self.mode == "exam"
-        drill = self.mode == "drill"
-        build = self.mode == "build"
-        # Exam mode replaces the title, count and difficulty rows with the
-        # tier and paper choices; the builder sets everything else.
-        self.title_field.hidden = exam
-        for view in (self.count_label, self.minus, self.plus, self.count_field):
-            view.hidden = exam or build
-        # Quick start swaps the difficulty pills for a year or grade picker;
-        # Build sets difficulty per block in the editor.
-        for view in (self.difficulty_label, *self.level_buttons):
-            view.hidden = exam or mini or build
-        # Build mode is the workspace itself, filling the space under the tabs.
-        self.build_button.hidden = self.build_summary.hidden = True
-        self.scroll.scroll_enabled = not build
-        # Build's sheet carries Generate and the preview actions itself.
-        self.total_label.hidden = self.generate_button.hidden = build
-        if self.workspace is not None:
-            self.workspace.hidden = not build
-        for view in (self.quick_kind_control, self.quick_choice_control):
-            view.hidden = not mini
-        self.quick_kind_control.frame = (left, 216, width, 34)
-        self.quick_choice_control.frame = (left, 264, width, 34)
-        for view in (self.exam_tier_control, self.exam_paper_control, self.exam_note):
-            view.hidden = not exam
-        self.exam_tier_control.frame = (left, 114, width, 34)
-        self.exam_paper_control.frame = (left, 158, width, 34)
-        self.exam_note.frame = (left, 198, width, 44)
-        self.heading.frame = (left, 12, width, 30)
-        self.mode_control.frame = (left, 48, width, 32)
-        self.subtitle.frame = (left, 84, width, 24)
-        self.title_field.frame = (left, 114, width, 40)
-        self.count_label.frame = (left, 168, width - 144, 34)
-        self.minus.frame = (left + width - 140, 166, 38, 38)
-        self.count_field.frame = (left + width - 98, 166, 56, 38)
-        self.plus.frame = (left + width - 38, 166, 38, 38)
-        self.difficulty_label.frame = (left, 216, 100, 34)
-        pill_width = min(49, (width - 104) / 4)
-        for index, item in enumerate(self.level_buttons):
-            item.frame = (left + width - 4 * pill_width + index * pill_width,
-                          216, pill_width - 5, 34)
-        # Quick start always runs easier to harder (its subtitle says so) and
-        # uses the order row for its picker.
-        self.order.hidden = mini or exam or drill or build
-        self.order_note.hidden = True
-        # Drill always runs level by level; its order slot holds the apply switch.
-        self.apply_label.hidden = not drill
-        self.apply_switch.hidden = not drill
-        self.apply_label.frame = (left, 264, width - 60, 34)
-        self.apply_switch.frame = (left + width - 51, 265, 51, 32)
-        self.order.frame = (left, 264, width, 34)
-        self.order_note.frame = (left, 264, width, 34)
-        settings_y = 250 if exam else 226 if build else 310
-        self.answers_label.frame = (left, settings_y, 130, 32)
-        self.answers.frame = (left + width - 51, settings_y, 51, 32)
-        self.theme_label.frame = (left, settings_y + 46, 110, 34)
-        self.theme_control.frame = (left + width - 230, settings_y + 46, 230, 34)
-        self.list_heading.text = "SUBJECTS" if mini else "SKILLS"
-        self.list_heading.frame = (left, 404, width - 165, 32)
-        self.select_all.frame = (left + width - 165, 402, 90, 36)
-        self.clear.frame = (left + width - 75, 402, 75, 36)
-        self.clear.title = "Clear all"
-        self.search_field.hidden = mini or exam or build
-        self.search_clear.hidden = mini or exam or build
-        for view in (self.list_heading, self.select_all, self.clear):
-            view.hidden = exam or build
-        self.search_field.frame = (left, 444, width - 64, 40)
-        self.search_clear.frame = (left + width - 60, 444, 60, 40)
-        query = self.search_field.text or ""
-        searching = bool(query.strip()) and not mini
-        self.search_clear.enabled = searching
-        self.select_all.title = "All shown" if searching else "Select all"
-        for row, name, detail, tick in self.subject_rows.values():
-            row.hidden = True
+        from .ui_layout import layout_builder
+        layout_builder(self)
 
-        for heading in self.topic_labels.values():
-            heading.hidden = True
-        for header, name, count in self.group_headers.values():
-            header.hidden = True
-        for control in self.group_selection_buttons.values():
-            control.hidden = True
-        for info, row, title, detail, tick in self.rows:
-            row.hidden = True
-        if exam:
-            self.empty_label.hidden = True
-            self.finish_layout(settings_y + 92, left, width, footer_height)
+    def toggle_settings(self, sender):
+        if self.settings_open:
+            self.title_field.end_editing()
+        self.settings_open = not self.settings_open
+        self.layout()
+
+    def show_drill_browser(self, top, bottom):
+        if self.drill_browser is None:
+            from .build_workspace import SkillBoard
+            from .drill_browser import DrillBrowserModel
+            self.drill_browser = SkillBoard(DrillBrowserModel(self))
+            self.add_subview(self.drill_browser)
+        self.drill_browser.hidden = False
+        self.drill_browser.frame = (
+            0, top, self.width, max(40, bottom - top))
+        self.drill_browser.layout()
+        self.drill_browser.mark_tiles()
+
+    def update_count_summary(self):
+        """Update only totals and count controls; safe during slider actions."""
+        try:
+            count = int(self.count_field.text)
+            valid = count > 0
+        except (TypeError, ValueError):
+            count, valid = 0, False
+        if self.mode == "drill":
+            total = sum(
+                len(self.offered_levels(info)) * max(0, count)
+                + (DEFAULT_APPLY_ITEMS if self.drill_apply else 0)
+                for info in self.infos if info.id in self.drill_selected)
+            self.total_label.text = "{} skills · {} items".format(
+                len(self.drill_selected), total)
+            valid = valid and count <= MAXIMUM_ITEMS_PER_STAGE
+            enabled = valid and bool(self.drill_selected) and bool(self.levels)
+        elif self.mode == "mini":
+            self.total_label.text = "{} questions · {} · {} subjects".format(
+                count, self.quick_target()[1], len(self.mini_subjects))
+            enabled = valid and bool(self.mini_subjects)
+        elif self.mode == "build":
+            from .build_model import block_size
+            total = sum(block_size(block) for block in self.build_blocks)
+            self.total_label.text = "{} blocks · {} questions".format(
+                len(self.build_blocks), total)
+            enabled = bool(self.build_blocks)
+        else:
             return
-        if build:
-            self.empty_label.hidden = True
-            self.finish_layout(settings_y + 92, left, width, footer_height)
-            for view in (self.status, self.open_questions, self.open_answers, self.save_button):
-                view.hidden = True
-            self.show_workspace()
+        self.generate_button.enabled = bool(enabled and not self.busy)
+        self.generate_button.alpha = 1 if self.generate_button.enabled else 0.45
+        limit = MAXIMUM_ITEMS_PER_STAGE if self.mode == "drill" else 60
+        self.count_slider.value = min(1, max(0, (count - 1) / (limit - 1)))
+
+    def slide_count(self, sender):
+        limit = MAXIMUM_ITEMS_PER_STAGE if self.mode == "drill" else 60
+        value = 1 + int(sender.value * (limit - 1) + 0.5)
+        if self.count_field.text == str(value):
             return
-        if mini:
-            # Individual skill selections stay hidden but preserved.
-            y = 444
-            for topic in self.topics:
-                row, name, detail, tick = self.subject_rows[topic]
-                row.hidden = False
-                row.frame = (left, y, width, 58)
-                tick.frame = (6, 11, 32, 36)
-                name.frame = (44, 6, width - 64, 26)
-                detail.frame = (44, 32, width - 64, 20)
-                y += 64
-            self.empty_label.hidden = True
-            self.finish_layout(y, left, width, footer_height)
-            return
-        y = 500
-        shown_topics = set()
-        match_count = 0
-        for group in self.groups:
-            visible = [info for info in group["infos"]
-                       if matches(info, query) and self.offered(info)]
-            if not visible:
-                continue
-            match_count += len(visible)
-            topic = group["topic"]
-            topic_opened = searching or topic in self.expanded_topics
-            if topic not in shown_topics:
-                heading = self.topic_labels[topic]
-                heading.hidden = False
-                # Compact card: the count sits on the title line, right-aligned.
-                heading.frame = (left, y, width, 52)
-                title, summary = self.topic_header_details[topic]
-                title.frame = (12, 4, width - 150, 44)
-                summary.frame = (width - 142, 4, 130, 44)
-                summary.alignment = ui.ALIGN_RIGHT
-                title.text = ("▾ " if topic_opened else "▸ ") + topic_style(topic)[0]
-                topic_infos = [info for info in self.infos
-                               if info.topic == topic and self.offered(info)]
-                selected_count = sum(info.id in self.chosen() for info in topic_infos)
-                summary.text = "{}/{} selected".format(selected_count, len(topic_infos))
-                if searching:
-                    summary.text += " · {} matching".format(
-                        sum(matches(info, query) for info in topic_infos)
-                    )
-                y += 58
-                shown_topics.add(topic)
-            if not topic_opened:
-                continue
-            key = group["key"]
-            opened = searching or key in self.expanded_groups
-            header, name, count = self.group_headers[key]
-            header.hidden = False
-            # Indented under its topic, with the count on the title line.
-            header.frame = (left + 10, y, width - 112, 48)
-            name.frame = (12, 4, width - 208, 40)
-            count.frame = (width - 192, 4, 70, 40)
-            count.alignment = ui.ALIGN_RIGHT
-            name.text = ("▾ " if opened else "▸ ") + group["title"]
-            group_infos = [info for info in group["infos"] if self.offered(info)]
-            selected = sum(info.id in self.chosen() for info in group_infos)
-            count.text = "{}/{} selected".format(selected, len(group_infos))
-            control = self.group_selection_buttons[key]
-            control.hidden = False
-            control.frame = (left + width - 96, y + 4, 96, 40)
-            all_selected = all(info.id in self.chosen() for info in visible)
-            if searching:
-                control.title = "Clear shown" if all_selected else "All shown"
-            else:
-                control.title = "Clear" if all_selected else "Select all"
-            y += 54
-            if opened:
-                for info in visible:
-                    _, row, title, detail, tick = self.row_lookup[info.id]
-                    row.hidden = False
-                    row.frame = (left + 20, y, width - 20, 64)
-                    tick.frame = (6, 14, 32, 36)
-                    title.frame = (44, 6, width - 76, 30)
-                    detail.frame = (44, 36, width - 76, 22)
-                    y += 70
-            y += 8
-        self.empty_label.hidden = match_count != 0
-        self.empty_label.frame = (left, y, width, 48)
-        if not match_count:
-            y += 56
-        self.finish_layout(y, left, width, footer_height)
+        self.count_field.text = str(value)
+        self.update_count_summary()
+        self.save()
 
     def finish_layout(self, y, left, width, footer_height):
         """Size the scroll content and place the fixed footer."""
@@ -762,19 +651,19 @@ class WorksheetBuilder(ui.View):
         self.save_button.alpha = 1 if self.save_button.enabled else 0.45
         for item in self.level_buttons:
             active = int(item.name) in self.levels
-            item.background_color = ACCENT if active else "white"
+            item.background_color = ACCENT if active else SURFACE
             item.tint_color = "white" if active else ACCENT
         for topic, (row, name, detail, tick) in self.subject_rows.items():
             active = topic in self.mini_subjects
             colour, tint = topic_style(topic)[1:]
-            row.background_color = tint if active else "white"
+            row.background_color = tint if active else SURFACE
             row.border_color = colour if active else tint
             tick.text = "✓" if active else "○"
             detail.text = self.subject_detail(topic)
         for info, row, title, detail, tick in self.rows:
             active = info.id in self.chosen()
             colour, tint = topic_style(info.topic)[1:]
-            row.background_color = tint if active else "white"
+            row.background_color = tint if active else SURFACE
             row.border_color = colour if active else tint
             tick.text = "✓" if active else "○"
             supported = self.offered_levels(info)
@@ -882,8 +771,12 @@ class WorksheetBuilder(ui.View):
             count = int(self.count_field.text)
         except ValueError:
             count = 5
-        self.count_field.text = str(max(1, count + (1 if sender is self.plus else -1)))
-        self.settings_changed(sender)
+        count = max(1, count + (1 if sender is self.plus else -1))
+        if self.mode == "drill":
+            count = min(MAXIMUM_ITEMS_PER_STAGE, count)
+        self.count_field.text = str(count)
+        self.update_count_summary()
+        self.save()
 
     def toggle_level(self, sender):
         level = int(sender.name)
@@ -907,6 +800,11 @@ class WorksheetBuilder(ui.View):
     def select_everything(self, sender):
         if self.mode == "mini":
             self.mini_subjects = set(self.topics)
+        elif self.mode == "drill" and self.drill_browser is not None:
+            board = self.drill_browser
+            for group in board.workspace.groups:
+                if board.topic is None or group["topic"] == board.topic:
+                    self.drill_selected.update(info.id for info in board.visible(group))
         else:
             query = self.search_field.text or ""
             self.chosen().update(
@@ -990,8 +888,8 @@ class WorksheetBuilder(ui.View):
             self.workspace.bring_to_front()
         self.scroll.content_offset = (0, 0)
         top = self.mode_control.y + self.mode_control.height + 8
-        # The footer is hidden in Build, so the workspace runs to the bottom.
-        self.workspace.frame = (0, top, self.width, max(100, self.height - top))
+        self.workspace.external_actions = True
+        self.workspace.frame = (0, top, self.width, max(40, self.footer.y - top))
         self.workspace.hidden = False
         ready = self.report is not None and not self.busy
         self.workspace.sync_results({
@@ -1010,6 +908,7 @@ class WorksheetBuilder(ui.View):
         hidden. The action log brackets the save so a crash shows where it was.
         """
         self.build_blocks = blocks
+        self.update_count_summary()
         if title and title.strip():
             self.title_field.text = title.strip()
         log = self.workspace.log if self.workspace is not None else None
@@ -1021,7 +920,7 @@ class WorksheetBuilder(ui.View):
 
     def workspace_settings(self, answers, theme_index):
         self.answers.value = answers
-        self.theme_control.selected_index = theme_index
+        self.theme_control.selected_index = 0
         self.save()
 
     def workspace_action(self, name):
@@ -1104,6 +1003,10 @@ class WorksheetBuilder(ui.View):
     def generate(self, sender):
         if self.busy:
             return
+        if self.mode == "build" and self.workspace is not None:
+            self.workspace.sheet.title_field.end_editing()
+            for card in self.workspace.sheet.cards:
+                card.count_value.end_editing()
         self.title_field.end_editing()
         self.count_field.end_editing()
         self.search_field.end_editing()

@@ -198,9 +198,9 @@ def main():
     sheet.textfield_did_end_editing(sheet.title_field)
     check(received[-1][1] == "Y9 starter", "host hears the title")
     sheet.answers_switch.value = False
-    sheet.style_control.selected_index = 1
+    sheet.style_control.selected_index = 0
     sheet.change_settings(sheet.answers_switch)
-    check(settings and settings[-1] == (False, 1), "host hears the settings")
+    check(settings and settings[-1] == (False, 0), "host hears the settings")
     sheet.generate(None)
     check(generated, "Generate reaches the host")
     workspace.sync_results({"busy": False, "status": "Preview ready.",

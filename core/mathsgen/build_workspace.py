@@ -37,28 +37,28 @@ from .topic_browser import ORDER, groups_for, topic_style
 
 # ------------------------------------------------------------ editable look
 
-BOARD = "#161616"
-TILE = "#2C2C2E"
-GROUP_TILE = "#232325"
-TILE_PRESSED = "#48484A"
-SEARCH_FIELD = "#3A3A3C"
-ACTIVE = "#5E5CE6"
-TEXT = "#F2F2F2"
-MUTED = "#B4B4B8"
-ADDED_TILE = "#17382A"
-ADDED_EDGE = "#34C759"
-PAPER = "#FBFAF6"
-PAPER_EDGE = "#E2DED3"
-CARD = "#FFFFFF"
-INK = "#1F2430"
-INK_MUTED = "#5B6472"
-DANGER = "#C0392B"
+from .ui_design import (
+    PAPER, SURFACE, GROUP, BORDER, INK, MUTED, GREEN, SELECTED, PRESSED,
+    DANGER, HEADING_FONT,
+)
 
-TOPIC_COLOURS = {
-    "number": "#2F80ED", "algebra": "#8E6CEF", "ratio": "#56CCF2",
-    "geometry": "#F2994A", "probability": "#EB5757", "data": "#27AE60",
-    "problem_solving": "#2DD4BF",
-}
+BOARD = PAPER
+TILE = SURFACE
+GROUP_TILE = GROUP
+TILE_PRESSED = PRESSED
+SEARCH_FIELD = SURFACE
+ACTIVE = GREEN
+TEXT = INK
+ADDED_TILE = SELECTED
+ADDED_EDGE = GREEN
+PAPER_EDGE = BORDER
+CARD = SURFACE
+INK_MUTED = MUTED
+
+TOPIC_COLOURS = dict.fromkeys(
+    ("number", "algebra", "ratio", "geometry", "probability", "data",
+     "problem_solving"), GREEN,
+)
 
 RADIUS = 7
 GAP = 6
@@ -267,6 +267,11 @@ class SkillBoard(ui.View):
         self.background_color = BOARD
         self.topic = None
         self.grades = None
+        self.filters_open = False
+        self.filters_button = flat_button(
+            "▸ Filters · All subjects · Any grade",
+            self.toggle_filters, PAPER, ACTIVE, 12)
+        self.add_subview(self.filters_button)
         self.open_topics = set()
         self.open_groups = set()
         self.rows = []
@@ -312,21 +317,36 @@ class SkillBoard(ui.View):
         return strip, chips
 
     def layout(self):
-        left, width = 12, self.width - 24
-        self.search.frame = (left, 4, width - 118, 38)
-        self.placeholder.frame = (left + 12, 4, width - 142, 38)
-        self.fold_button.frame = (left + width - 110, 4, 110, 38)
-        for strip, chips, y in ((self.topic_strip, self.topic_chips, 50),
-                                (self.grade_strip, self.grade_chips, 88)):
+        left, width = 12, max(220, self.width - 24)
+        self.search.frame = (left, 4, width - 104, 40)
+        self.placeholder.frame = (left + 10, 4, width - 124, 40)
+        self.fold_button.frame = (left + width - 98, 4, 98, 40)
+        self.filters_button.frame = (left, 48, width, 32)
+        for strip, chips, y in ((self.topic_strip, self.topic_chips, 86),
+                                (self.grade_strip, self.grade_chips, 124)):
+            strip.hidden = not self.filters_open
             x = left
             for chip in chips:
                 chip.frame = (x, 0, chip_width(chip.title), 32)
                 x += chip_width(chip.title) + GAP
             strip.frame = (0, y, self.width, 32)
             strip.content_size = (x + left, 32)
-        self.status.frame = (left, 126, width, 18)
-        self.grid.frame = (0, 148, self.width, max(100, self.height - 148))
+        bottom = 162 if self.filters_open else 84
+        self.status.frame = (left, bottom, width, 20)
+        self.grid.frame = (0, bottom + 24, self.width,
+                           max(60, self.height - bottom - 24))
+        self.update_filter_summary()
         self.fill_grid()
+
+    def toggle_filters(self, sender):
+        self.filters_open = not self.filters_open
+        self.layout()
+
+    def update_filter_summary(self):
+        subject = topic_style(self.topic)[0] if self.topic else "All subjects"
+        grade = "Grades {}–{}".format(*self.grades) if self.grades else "Any grade"
+        self.filters_button.title = "{} Filters · {} · {}".format(
+            "▾" if self.filters_open else "▸", subject, grade)
 
     # -------------------------------------------------- filters
 
@@ -368,6 +388,7 @@ class SkillBoard(ui.View):
         return shown
 
     def style_chips(self):
+        self.update_filter_summary()
         for chip in self.topic_chips:
             chosen = (chip.name == "all" and self.topic is None) or chip.name == self.topic
             colour = ACTIVE if chip.name == "all" else TOPIC_COLOURS.get(chip.name, ACTIVE)
@@ -384,8 +405,13 @@ class SkillBoard(ui.View):
     def fill_grid(self):
         """Topic headers, then (when open) subheadings and skill rows."""
         self.style_chips()
-        for view in list(self.grid.subviews):
-            self.grid.remove_subview(view)
+        if not hasattr(self, "_row_cache"):
+            self._row_cache = {}
+            self._header_cache = {}
+            self._empty = text_label("No skills match.", 14, MUTED)
+            self.grid.add_subview(self._empty)
+        for view in self.grid.subviews:
+            view.hidden = True
         self.rows, self.headers = [], []
         left, width = 12, self.width - 24
         filtering = self.filtering()
@@ -418,26 +444,37 @@ class SkillBoard(ui.View):
                         y = self.add_row(info, colour, left + 24, y, width - 24)
             y += 8
         if not self.headers:
-            empty = text_label("No skills match.", 14, MUTED)
-            empty.frame = (left, 10, width, 24)
-            self.grid.add_subview(empty)
+            self._empty.hidden = False
+            self._empty.frame = (left, 10, width, 24)
         self.grid.content_size = (self.width, y + 40)
         self.fold_button.title = "Fold all" if (self.open_topics or self.open_groups) else "Expand all"
         self.mark_tiles()
 
     def add_header(self, kind, key, title, colour, ids, opened, x, y, width):
-        header = HeaderRow(self, kind, key, title, colour, ids, opened)
+        cache_key = (kind, key)
+        header = self._header_cache.get(cache_key)
+        if header is None:
+            header = HeaderRow(self, kind, key, title, colour, ids, opened)
+            self._header_cache[cache_key] = header
+            self.grid.add_subview(header)
+        header.ids = ids
+        header.title_text = ("▾ " if opened else "▸ ") + title
+        header.title.text = header.title_text
+        header.hidden = False
         height = header.needed_height(width)
         header.frame = (x, y, width, height)
-        self.grid.add_subview(header)
         self.headers.append(header)
         return y + height + GAP
 
     def add_row(self, info, colour, x, y, width):
-        row = SkillRow(self, self.workspace.entries[info.id], colour)
+        row = self._row_cache.get(info.id)
+        if row is None:
+            row = SkillRow(self, self.workspace.entries[info.id], colour)
+            self._row_cache[info.id] = row
+            self.grid.add_subview(row)
+        row.hidden = False
         height = row.needed_height(width)
         row.frame = (x, y, width, height)
-        self.grid.add_subview(row)
         self.rows.append(row)
         return y + height + GAP
 
@@ -482,7 +519,9 @@ class HeaderRow(ui.View):
         topic = kind == "topic"
         self.size = 17 if topic else 15
         self.minimum = 46 if topic else 40
-        self.background_color = TILE if topic else GROUP_TILE
+        self.background_color = SELECTED if topic else GROUP_TILE
+        self.border_color = BORDER
+        self.border_width = 1 if topic else 0
         self.corner_radius = RADIUS
         self.bar = ui.View()
         self.bar.background_color = colour if topic else GROUP_TILE
@@ -500,7 +539,7 @@ class HeaderRow(ui.View):
         return max(self.minimum, text_height(self.title_text, width - 168, self.size, True) + 16)
 
     def layout(self):
-        self.bar.frame = (0, 0, 4, self.height)
+        self.bar.hidden = True
         self.title.frame = (14, 0, self.width - 168, self.height)
         self.detail.frame = (self.width - 152, 0, 142, self.height)
 
@@ -531,8 +570,8 @@ class SkillRow(ui.View):
         self.stripe.touch_enabled = False
         self.title = text_label(entry["title"], ROW_TITLE_SIZE, TEXT, bold=True, lines=0)
         self.detail = text_label(row_detail(entry), 12, MUTED)
-        self.mark = text_label("", 14, ADDED_EDGE, bold=True)
-        self.mark.alignment = ui.ALIGN_RIGHT
+        self.mark = text_label("", 22, ADDED_EDGE, bold=True)
+        self.mark.alignment = ui.ALIGN_CENTER
         for view in (self.stripe, self.title, self.detail, self.mark):
             self.add_subview(view)
         self.set_added(0)
@@ -546,10 +585,10 @@ class SkillRow(ui.View):
 
     def layout(self):
         title = text_height(self.entry["title"], self.title_width(self.width), ROW_TITLE_SIZE, True)
-        self.stripe.frame = (0, 0, 4, self.height)
-        self.title.frame = (14, 8, self.title_width(self.width), title)
-        self.mark.frame = (self.width - 44, 8, 36, 20)
-        self.detail.frame = (14, self.height - 25, self.width - 22, 17)
+        self.stripe.hidden = True
+        self.title.frame = (44, 8, self.title_width(self.width), title)
+        self.mark.frame = (6, max(8, (self.height - 32) / 2), 32, 32)
+        self.detail.frame = (44, self.height - 25, self.width - 54, 17)
 
     def resting_colour(self):
         return ADDED_TILE if self.added else TILE
@@ -557,9 +596,9 @@ class SkillRow(ui.View):
     def set_added(self, count):
         self.added = count
         self.background_color = self.resting_colour()
-        self.border_color = ADDED_EDGE
-        self.border_width = 2 if count else 0
-        self.mark.text = "" if not count else ("✓" if count == 1 else "✓×{}".format(count))
+        self.border_color = ADDED_EDGE if count else BORDER
+        self.border_width = 1
+        self.mark.text = "✓" if count else "○"
 
     def touch_began(self, touch):
         self.background_color = TILE_PRESSED
@@ -579,6 +618,10 @@ class SheetView(ui.View):
         super().__init__()
         self.workspace = workspace
         self.background_color = PAPER
+        self.settings_open = False
+        self.settings_button = flat_button(
+            "▸ Worksheet settings", self.toggle_settings, SURFACE, ACTIVE, 13)
+        self.add_subview(self.settings_button)
         self.title_field = ui.TextField()
         self.title_field.text = title
         self.title_field.placeholder = "Worksheet title"
@@ -592,6 +635,7 @@ class SheetView(ui.View):
         self.answers_label = text_label("Answers", 14, INK, bold=True)
         self.answers_switch = ui.Switch()
         self.answers_switch.value = bool(answers)
+        self.answers_switch.tint_color = ACTIVE
         self.answers_switch.action = self.change_settings
         self.style_control = ui.SegmentedControl()
         self.style_control.segments = list(theme_names)
@@ -625,35 +669,59 @@ class SheetView(ui.View):
         return button
 
     def layout(self):
-        left, width = 12, self.width - 24
-        self.title_field.frame = (left, 6, width - 112, 36)
-        self.generate_button.frame = (left + width - 104, 6, 104, 36)
-        self.summary.frame = (left, 44, width, 18)
-        self.answers_label.frame = (left, 68, 70, 31)
-        self.answers_switch.frame = (left + 72, 68, 51, 31)
-        style_width = min(210, width - 132)
-        self.style_control.frame = (left + width - style_width, 68, style_width, 30)
-        top = 108
-        if self.results_shown:
-            button_width = 72
-            right = left + width
-            self.save_button.frame = (right - button_width, 106, button_width, 28)
-            self.answers_button.frame = (right - 2 * button_width - 6, 106, button_width, 28)
-            self.open_button.frame = (right - 3 * button_width - 12, 106, button_width, 28)
-            self.result_status.frame = (left, 106, width - 3 * button_width - 18, 28)
-            top = 142
-        self.scroll.frame = (0, top, self.width, max(100, self.height - top))
-        self.empty.frame = (left, top + 40, width, 60)
+        left, width = 12, max(220, self.width - 24)
+        external = getattr(self.workspace, "external_actions", False)
+        self.settings_button.frame = (left, 8, width, 38)
+        self.update_settings_summary()
+        self.title_field.hidden = not self.settings_open
+        self.answers_label.hidden = self.answers_switch.hidden = not self.settings_open
+        self.style_control.hidden = True
+        self.title_field.frame = (left, 54, width, 38)
+        self.answers_label.frame = (left, 102, width - 65, 32)
+        self.answers_switch.frame = (left + width - 51, 102, 51, 31)
+        top = 144 if self.settings_open else 54
+        self.generate_button.hidden = self.summary.hidden = external
+        for control in (self.result_status, self.open_button,
+                        self.answers_button, self.save_button):
+            control.hidden = external or not self.results_shown
+        bottom_height = 0 if external else (156 if self.results_shown else 88)
+        bottom = max(top + 40, self.height - bottom_height)
+        if not external:
+            self.summary.frame = (left, bottom, width, 22)
+            self.generate_button.frame = (left, bottom + 28, width, 44)
+            if self.results_shown:
+                self.result_status.frame = (left, bottom + 76, width, 24)
+                button_width = (width - 12) / 3
+                for index, control in enumerate((
+                        self.open_button, self.answers_button, self.save_button)):
+                    control.frame = (left + index * (button_width + 6),
+                                     bottom + 108, button_width, 36)
+        self.scroll.frame = (0, top, self.width, max(40, bottom - top))
+        self.empty.frame = (left, top + 24, width, 64)
         self.place_cards()
+
+    def update_settings_summary(self):
+        title = self.title_field.text.strip() or "Untitled worksheet"
+        answers = "Answers on" if self.answers_switch.value else "Answers off"
+        self.settings_button.title = "{} {} · {}".format(
+            "▾" if self.settings_open else "▸", title, answers)
+
+    def toggle_settings(self, sender):
+        if self.settings_open:
+            self.title_field.end_editing()
+        self.settings_open = not self.settings_open
+        self.layout()
 
     # -------------------------------------------------- header
 
     def textfield_did_end_editing(self, textfield):
         self.workspace.log.add("title")
+        self.update_settings_summary()
         self.workspace.notify()
 
     def change_settings(self, sender):
         self.workspace.log.add("settings")
+        self.update_settings_summary()
         if self.workspace.on_settings:
             self.workspace.on_settings(bool(self.answers_switch.value),
                                        self.style_control.selected_index)
@@ -679,7 +747,7 @@ class SheetView(ui.View):
         self.generate_button.alpha = 1 if self.generate_button.enabled else 0.45
         shown = ready or busy or bool(status)
         for view in (self.result_status, self.open_button, self.answers_button, self.save_button):
-            view.hidden = not shown
+            view.hidden = getattr(self.workspace, "external_actions", False) or not shown
         self.result_status.text = status
         self.open_button.enabled = ready
         self.answers_button.enabled = ready and bool(state.get("answers"))
@@ -698,14 +766,26 @@ class SheetView(ui.View):
         return max(100, self.scroll.width - 24)
 
     def rebuild(self):
-        """One card per block, keeping which cards were open."""
-        opened = {id(card.block) for card in self.cards if card.opened}
-        for card in self.cards:
-            self.scroll.remove_subview(card)
-        self.cards = [BlockCard(self, block, id(block) in opened)
-                      for block in self.workspace.blocks]
-        for card in self.cards:
-            self.scroll.add_subview(card)
+        """Reuse cards; retain hidden removed cards until this sheet closes.
+
+        An action can originate inside a card. Never destroy that card or its
+        touched control while UIKit is still delivering the action.
+        """
+        if not hasattr(self, "_card_cache"):
+            self._card_cache = {}
+        for card in self._card_cache.values():
+            card.hidden = True
+        cards = []
+        for block in self.workspace.blocks:
+            key = id(block)
+            card = self._card_cache.get(key)
+            if card is None:
+                card = BlockCard(self, block)
+                self._card_cache[key] = card
+                self.scroll.add_subview(card)
+            card.hidden = False
+            cards.append(card)
+        self.cards = cards
         self.workspace.sheet_dirty = False
         self.place_cards()
         self.update_summary()
@@ -781,6 +861,7 @@ class BlockCard(ui.View):
         self.sheet = sheet
         self.block = block
         self.opened = opened
+        self.actions_open = False
         self.number = 0
         self.is_first = self.is_last = False
         self.measure_width = 300
@@ -805,15 +886,30 @@ class BlockCard(ui.View):
         self.drill_label = text_label("Drill", 14, INK, bold=True)
         self.drill_switch = ui.Switch()
         self.drill_switch.action = self.change_drill
+        self.drill_switch.tint_color = ACTIVE
         self.apply_label = text_label("Applied", 14, INK)
         self.apply_label.alignment = ui.ALIGN_RIGHT
         self.apply_switch = ui.Switch()
         self.apply_switch.action = self.change_apply
+        self.apply_switch.tint_color = ACTIVE
         self.count_label = text_label("Questions", 14, INK, bold=True)
         self.minus = flat_button("−", self.change_count, PAPER, INK, 18)
         self.minus.name = "-1"
-        self.count_value = text_label("", 16, INK, bold=True)
+        self.count_value = ui.TextField()
+        self.count_value.font = ("<System-Bold>", 16)
+        self.count_value.text_color = INK
+        self.count_value.background_color = PAPER
+        self.count_value.corner_radius = RADIUS
         self.count_value.alignment = ui.ALIGN_CENTER
+        self.count_value.keyboard_type = ui.KEYBOARD_NUMBERS
+        self.count_value.delegate = self
+        self.count_slider = ui.Slider()
+        self.count_slider.tint_color = ACTIVE
+        self.count_slider.action = self.slide_count
+        self.actions_button = flat_button(
+            "▸ Actions", self.toggle_actions, PAPER, ACTIVE, 13)
+        self.close_button = flat_button(
+            "Close", self.hide, PAPER, ACTIVE, 13)
         self.plus = flat_button("+", self.change_count, PAPER, INK, 18)
         self.plus.name = "1"
         self.level_label = text_label("Difficulty", 14, INK, bold=True)
@@ -835,6 +931,8 @@ class BlockCard(ui.View):
         self.row_views = {
             "drill": [self.drill_label, self.drill_switch, self.apply_label, self.apply_switch],
             "count": [self.count_label, self.minus, self.count_value, self.plus],
+            "slider": [self.count_slider],
+            "actions": [self.actions_button, self.close_button],
             "levels": [self.level_label, *self.level_pills],
             "move": [self.up_button, self.down_button, self.top_button],
             "buttons": [self.duplicate_button, self.remove_button, self.hide_button],
@@ -849,7 +947,12 @@ class BlockCard(ui.View):
 
     def rows(self):
         """Control rows shown when open; skills without drill skip that row."""
-        return (["drill"] if self.has_drill else []) + ["count", "levels", "move", "buttons"]
+        rows = (["drill"] if self.has_drill else []) + [
+            "count", "slider", "levels", "actions",
+        ]
+        if self.actions_open:
+            rows.extend(["move", "buttons"])
+        return rows
 
     def title_height(self, width):
         return text_height(self.info.title, width - 112, CARD_TITLE_SIZE, True)
@@ -884,6 +987,11 @@ class BlockCard(ui.View):
                 self.minus.frame = (width - 152, y, 40, 34)
                 self.count_value.frame = (width - 108, y, 52, 34)
                 self.plus.frame = (width - 52, y, 40, 34)
+            elif row == "slider":
+                self.count_slider.frame = (20, y, width - 40, 32)
+            elif row == "actions":
+                self.actions_button.frame = (16, y, width - 120, 34)
+                self.close_button.frame = (width - 96, y, 80, 34)
             elif row == "levels":
                 self.level_label.frame = (16, y, 100, 34)
                 for index, pill in enumerate(self.level_pills):
@@ -919,6 +1027,9 @@ class BlockCard(ui.View):
         self.apply_switch.value = bool(block.get("apply", True))
         self.count_label.text = "Items per level" if drill else "Questions"
         self.count_value.text = str(block["count"])
+        limit = maximum_count(block["kind"])
+        self.count_slider.value = (block["count"] - 1) / max(1, limit - 1)
+        self.actions_button.title = "▾ Actions" if self.actions_open else "▸ Actions"
         supported = supported_levels(self.info, self.sheet.workspace.drill_levels, block["kind"])
         for pill in self.level_pills:
             level = int(pill.name)
@@ -964,11 +1075,39 @@ class BlockCard(ui.View):
         self.block["apply"] = bool(sender.value)
         self.settings_changed("applied")
 
+    def set_count(self, value):
+        """Commit one integer count without rebuilding or relaying out cards."""
+        limit = maximum_count(self.block["kind"])
+        value = max(1, min(limit, int(value)))
+        if value == self.block["count"]:
+            self.show_controls()
+            return
+        self.block["count"] = value
+        self.settings_changed("count {}".format(value))
+
     def change_count(self, sender):
-        block = self.block
-        block["count"] = max(1, min(maximum_count(block["kind"]),
-                                    block["count"] + int(sender.name)))
-        self.settings_changed("count {}".format(block["count"]))
+        self.set_count(self.block["count"] + int(sender.name))
+
+    def slide_count(self, sender):
+        limit = maximum_count(self.block["kind"])
+        self.set_count(1 + int(sender.value * (limit - 1) + 0.5))
+
+    def textfield_did_end_editing(self, textfield):
+        try:
+            value = int(textfield.text.strip())
+        except (ValueError, TypeError):
+            self.show_controls()
+            return
+        self.set_count(value)
+
+    def textfield_should_return(self, textfield):
+        textfield.end_editing()
+        return True
+
+    def toggle_actions(self, sender):
+        self.actions_open = not self.actions_open
+        self.sheet.workspace.log.add("actions " + self.info.id)
+        self.sheet.place_cards()
 
     def toggle_level(self, sender):
         level = int(sender.name)
