@@ -14,7 +14,7 @@ from reportlab.platypus import (
 
 from .core import require
 from .topic_browser import topic_style
-from .squared_page import draw_page_grid, white_panel
+from .squared_page import draw_page_grid, white_panel, content_panel, draw_page_background
 from .theme import DEFAULT_THEME, THEMES, theme_for
 
 
@@ -117,12 +117,14 @@ class WorkingSpace(Flowable):
 
 
 def styles(theme=None):
-    """Paragraph styles for a theme; with no theme, the classic look."""
+    """Paragraph styles for the selected theme or the current default."""
     theme = theme or THEMES[DEFAULT_THEME]
     return {
         "title": ParagraphStyle(
-            "WorksheetTitle", fontName=theme.bold_font, fontSize=21,
-            leading=26, textColor=colors.HexColor(theme.title_ink), spaceAfter=8,
+            "WorksheetTitle", fontName=theme.bold_font,
+            fontSize=30 if theme.name == "ivory" else 21,
+            leading=35 if theme.name == "ivory" else 26,
+            textColor=colors.HexColor(theme.title_ink), spaceAfter=8,
         ),
         "subtitle": ParagraphStyle(
             "WorksheetSubtitle", fontName=theme.body_font, fontSize=9,
@@ -215,7 +217,7 @@ def visual_blocks(question, mode):
     return blocks
 
 
-def scene_working_row(question, available_width):
+def scene_working_row(question, available_width, theme=None):
     """Fit one schematic beside transparent working space.
 
     The actual rendered drawing determines the panel width. Its design
@@ -248,7 +250,7 @@ def scene_working_row(question, available_width):
     working = WorkingSpace(question.layout_hint.working_lines)
     working.height = max(working.height, panel_height)
 
-    diagram_panel = white_panel([visual], panel_width)
+    diagram_panel = content_panel([visual], panel_width, theme)
 
     row = Table(
         [[diagram_panel, "", working]],
@@ -346,6 +348,27 @@ def question_story(question, number, mode, specification, style, theme, width, h
         blocks = [Paragraph(heading_markup, question_label_style)]
     else:
         blocks = [paragraph(heading, question_label_style)]
+    if theme.name == "ivory":
+        from .pdf_headings import SectionHeading
+
+        badge = (
+            "Level {}".format(question.difficulty)
+            if specification.get("show_difficulty", True) else None
+        )
+        blocks = [SectionHeading(
+            number, "Question", theme, compact=True, badge=badge,
+        )]
+        if mode == "questions" and specification.get("interactive_links", True):
+            from .question_actions import action_links_markup
+
+            action_style = ParagraphStyle(
+                "IvoryQuestionActions", parent=style["source"],
+                fontSize=8, leading=11, spaceAfter=5,
+                textColor=colors.HexColor(theme.link_ink),
+            )
+            blocks.append(Paragraph(
+                action_links_markup(question, theme.link_ink), action_style,
+            ))
     if specification.get("show_source", True):
         blocks.append(paragraph(source_line(question), style["source"]))
 
@@ -389,12 +412,11 @@ def question_story(question, number, mode, specification, style, theme, width, h
             ]))
             blocks.append(row)
     if mode == "questions":
-        # Only the actual question content gets white backing.
-        # Reserved writing space remains transparent to the page grid.
-        blocks = [white_panel(blocks, width - 12)]
+        # Themes control backing; reserved writing space stays transparent.
+        blocks = [content_panel(blocks, width - 12, theme)]
         if beside:
             blocks.append(Spacer(1, 6))
-            blocks.append(scene_working_row(question, width - 12))
+            blocks.append(scene_working_row(question, width - 12, theme))
             blocks.append(Spacer(1, 6))
         else:
             blocks.append(WorkingSpace(question.layout_hint.working_lines))
@@ -461,7 +483,7 @@ def render_pdf(worksheet, destination, mode="questions"):
         ])
 
     if mode == "questions":
-        story = [white_panel(story, document.width - 12), Spacer(1, 10)]
+        story = [content_panel(story, document.width - 12, theme), Spacer(1, 10)]
 
     for number, question in enumerate(worksheet.questions, 1):
         story.append(question_story(
@@ -470,14 +492,11 @@ def render_pdf(worksheet, destination, mode="questions"):
         ))
 
     def footer(canvas, doc):
-        # Page callbacks execute before flowables, so every panel paints over
-        # the grid rather than having grid lines drawn through its content.
-        if mode == "questions":
-            draw_page_grid(canvas, PAGE_WIDTH, PAGE_HEIGHT,
-                           theme.grid_ink, theme.grid_width)
+        draw_page_background(canvas, PAGE_WIDTH, PAGE_HEIGHT, theme,
+                             squared=mode == "questions")
         canvas.saveState()
-        if mode == "questions":
-            canvas.setFillColor(colors.white)
+        if mode == "questions" and theme.opaque_panels:
+            canvas.setFillColor(colors.HexColor(theme.paper_ink))
             canvas.rect(
                 MARGIN - 4, 11 * mm - 3,
                 PAGE_WIDTH - 2 * MARGIN + 8, 13,

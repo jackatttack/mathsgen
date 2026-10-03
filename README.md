@@ -27,13 +27,25 @@ The installer downloads the current `main` branch to local `Documents/mathsgen/`
 The launcher opens the **Worksheet Maker**. Enter a title, then choose a mode at the top:
 
 - **Quick start:** Choose a year group (Y7–Y11) or a grade band (1–3, 4–5, 6–7, 8–9), the subjects, and a total number of questions. MathsGen picks a mix suited to that class and orders it from easier to harder. Year groups and grades are a teacher's working estimates, not exam-board data.
-- **Build:** Design a sheet block by block. The skill board lists every skill by topic and subheading, with Edexcel spec codes, year groups and grades; filter by topic or grade, or search. Tap a skill to put it on the sheet (it turns green); tap again to take it off. The sheet slides over the board: tap a card to choose questions or drill, the count, and difficulty levels 1–4 (progression within the skill, not GCSE grades); press and hold a card to move it. Generate, the answer key, the PDF style, and Open/Save sit at the top of the sheet.
+- **Build:** Design a sheet block by block. Use the **Skills | Sheet** switch to move between the skill board and your worksheet. The board lists skills by topic and subheading, with Edexcel spec codes, year groups and grades; filter or search, then tap a skill to add it (green tick) or remove it. On Sheet, tap a card to choose questions or drill, applied practice, count and difficulty levels 1–4 (progression within the skill, not GCSE grades). Reorder with **Up**, **Down** or **To top**, or duplicate/remove a block. Generate, answers and Open/Save sit at the top of the sheet.
 - **Drill:** Tick skills for staged practice: each skill runs level by level, then optional applied problems.
 - **Exam paper:** Choose Foundation or Higher and Paper 1, 2 or 3. MathsGen builds an Edexcel-style paper worth exactly 80 marks, balanced across Number, Algebra, Ratio, Geometry, and Probability & Statistics using the published tier weightings, ordered by approximate grade. Paper 1 is non-calculator; papers 2 and 3 favour calculator questions. Grades are indicative, not exam-board calibrated.
 
 Tap **Generate preview** (in Build, **Generate** at the top of the sheet). Open the worksheet or answers from the buttons that appear. Use the PDF viewer's Share control to send a preview to another app. Tap **Save worksheet** to keep the *same* generated PDFs in `mathsgen/exports/`; it does not generate new questions. Your selections persist between sessions. Previews use temporary device storage, so save any you want to keep.
 
 A given generator and seed reproduce the same question in this snapshot. Future generator updates may change its wording or structure, so save the PDF when you need that exact version.
+
+## Worksheet design
+
+**Ivory** is the default and the only style offered in the app. Warm ivory
+squared paper runs continuously behind questions and diagrams. Forest-green
+serif headings, large section numbers, fine divider rules and terracotta
+level badges give exercises a clear hierarchy. Question actions sit on a
+smaller separate line. Answer sheets use plain ivory paper.
+
+The design works across normal worksheets, drill exercises and mixed block
+sheets. Existing app settings using an older style switch to Ivory when
+loaded; previously saved PDFs remain unchanged.
 
 ## Links in the question toolbar
 

@@ -16,7 +16,7 @@ from .core import require
 from .drill import drill_stages
 from .drill_pdf import exercise_story
 from .pdf import MARGIN, PAGE_HEIGHT, PAGE_WIDTH, paragraph, question_story, styles
-from .squared_page import draw_page_grid, white_panel
+from .squared_page import content_panel, draw_page_background
 from .theme import theme_for
 from .worksheets import Worksheet
 
@@ -71,7 +71,7 @@ def render_blocks_pdf(worksheet, destination, mode="questions"):
             paragraph("Name: ________________________    Date: ______________", style["body"]),
             Spacer(1, 12),
         ])
-        story = [white_panel(story, width), Spacer(1, 10)]
+        story = [content_panel(story, width, theme), Spacer(1, 10)]
 
     question_number = exercise_number = 0
     report = []
@@ -92,12 +92,10 @@ def render_blocks_pdf(worksheet, destination, mode="questions"):
                 ))
 
     def footer(canvas, doc):
-        # Page callbacks run before flowables, so panels paint over the grid.
-        if on_paper:
-            draw_page_grid(canvas, PAGE_WIDTH, PAGE_HEIGHT, theme.grid_ink, theme.grid_width)
+        draw_page_background(canvas, PAGE_WIDTH, PAGE_HEIGHT, theme, squared=on_paper)
         canvas.saveState()
-        if on_paper:
-            canvas.setFillColor(colors.white)
+        if on_paper and theme.opaque_panels:
+            canvas.setFillColor(colors.HexColor(theme.paper_ink))
             canvas.rect(MARGIN - 4, 11 * mm - 3, PAGE_WIDTH - 2 * MARGIN + 8, 13, stroke=0, fill=1)
         canvas.setFont(theme.body_font, 8)
         canvas.setFillColor(colors.HexColor(theme.muted_ink))

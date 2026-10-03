@@ -13,7 +13,7 @@ ACCENT = "#315BE8"
 INK = "#182238"
 MUTED = "#64748B"
 # PDF themes offered in the builder, in segment order (see theme.py).
-THEME_CHOICES = ("calm", "classic", "contrast")
+THEME_CHOICES = ("ivory",)
 
 
 from .drill import DEFAULT_APPLY_ITEMS, DRILL_SKILLS, MAXIMUM_ITEMS_PER_STAGE, drill_skills
@@ -601,7 +601,7 @@ class WorksheetBuilder(ui.View):
             self.title_field.text = state["title"]
             self.order.selected_index = 1 if state.get("shuffle", True) else 0
             self.answers.value = bool(state.get("answers", True))
-            theme = state.get("theme", "calm")
+            theme = state.get("theme", THEME_CHOICES[0])
             self.theme_control.selected_index = (
                 THEME_CHOICES.index(theme) if theme in THEME_CHOICES else 0
             )

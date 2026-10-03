@@ -1,7 +1,8 @@
 """Worksheet themes: every colour and font the PDF chrome uses, in one place.
 
-A worksheet chooses a theme with specification["theme"]; "calm" is the
-default (chosen 2026-09-23) and "classic" is the original look. Themes cover the page chrome (title, labels,
+A worksheet chooses a theme with specification["theme"]; "ivory" is the
+default. Older themes remain readable for previously exported specifications
+but are no longer offered in the app. Themes cover the page chrome (title, labels,
 body text, maths ink, links, grid, footer, source line). Diagram colours stay
 in visuals.py and plots.py for now.
 
@@ -28,9 +29,18 @@ class Theme:
     grid_width: float
     accent: str           # question heading colour when topic colours are off
     topic_colours: bool   # colour each heading by its topic
+    paper_ink: str = "#FFFFFF"
+    opaque_panels: bool = True
 
 
 THEMES = {
+    "ivory": Theme(
+        name="ivory", body_font="Helvetica", bold_font="Times-Bold",
+        title_ink="#171B19", body_ink="#202420", muted_ink="#617064",
+        source_ink="#73796C", link_ink="#A35435", grid_ink="#E6DFD0",
+        grid_width=0.25, accent="#164D39", topic_colours=False,
+        paper_ink="#F6F1E6", opaque_panels=False,
+    ),
     "classic": Theme(
         name="classic", body_font="Helvetica", bold_font="Helvetica-Bold",
         title_ink="#17212B", body_ink="#000000", muted_ink="#596572",
@@ -50,7 +60,7 @@ THEMES = {
         grid_width=0.5, accent="#000000", topic_colours=False,
     ),
 }
-DEFAULT_THEME = "calm"
+DEFAULT_THEME = "ivory"
 
 
 def theme_for(specification):

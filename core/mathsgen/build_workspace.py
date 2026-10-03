@@ -150,7 +150,7 @@ class Workspace(ui.View):
     """The Skills | Sheet switch over the board or the sheet."""
 
     def __init__(self, registry, blocks, title, on_change, answers=True,
-                 theme_index=0, theme_names=("Calm", "Classic", "Contrast"),
+                 theme_index=0, theme_names=("Ivory",),
                  on_settings=None, on_generate=None, on_action=None, log_path=None):
         super().__init__()
         self.background_color = BOARD

@@ -34,7 +34,7 @@ from .pdf import (
     MARGIN, PAGE_HEIGHT, PAGE_WIDTH, MathLine, difficulty_stars, paragraph,
     question_prompt, styles,
 )
-from .squared_page import draw_page_grid, white_panel
+from .squared_page import content_panel, draw_page_background
 from .theme import theme_for
 from .topic_browser import topic_style
 
@@ -278,7 +278,8 @@ def grid_item(index, cell, column_width, label_style):
     return item
 
 
-def grid_table(cells, columns, available_width, label_style, row_space, white):
+def grid_table(cells, columns, available_width, label_style, row_space, white,
+               background="#FFFFFF"):
     column_width = available_width / columns
     rows = []
     row = []
@@ -295,7 +296,7 @@ def grid_table(cells, columns, available_width, label_style, row_space, white):
         ("BOTTOMPADDING", (0, 0), (-1, -1), row_space),
     ]
     if white:
-        grid_style.append(("BACKGROUND", (0, 0), (-1, -1), colors.white))
+        grid_style.append(("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(background)))
     grid.setStyle(TableStyle(grid_style))
     return grid
 
@@ -312,7 +313,15 @@ def stage_title(stage):
 def stage_story(stage, questions, style, theme, width, on_paper):
     """Flowables and a report entry for one stage."""
     applied = stage["kind"] == "apply"
-    heading = [paragraph(stage_title(stage), style["label"])]
+    if theme.name == "ivory":
+        from .pdf_headings import LevelBadge
+
+        label = APPLY_TITLE if applied else "Level {}{}".format(
+            stage["level"], stage.get("part", ""),
+        )
+        heading = [LevelBadge(label, theme)]
+    else:
+        heading = [paragraph(stage_title(stage), style["label"])]
     shared = None
     if on_paper:
         if stage.get("instruction"):
@@ -346,9 +355,14 @@ def stage_story(stage, questions, style, theme, width, on_paper):
         row_space = DIAGRAM_ROW_SPACE if diagrams else DRILL_ROW_SPACE
 
     story = [CondPageBreak(STAGE_START_SPACE)]
-    story.append(white_panel(heading, width) if on_paper else heading[0])
+    stage_heading = content_panel(heading, width, theme) if on_paper else heading[0]
+    stage_heading.keepWithNext = True
+    story.append(stage_heading)
     story.append(Spacer(1, 4))
-    story.append(grid_table(cells, columns, width, style["label"], row_space, on_paper))
+    story.append(grid_table(
+        cells, columns, width, style["label"], row_space,
+        on_paper and theme.opaque_panels, theme.paper_ink,
+    ))
     story.append(Spacer(1, STAGE_GAP))
     report = {
         "kind": stage["kind"], "part": stage.get("part", ""),
@@ -373,10 +387,17 @@ def exercise_story(number, block, stages, style, theme, width, on_paper):
             topic_style(topic)[1] if theme.topic_colours else theme.accent
         ),
     )
-    heading = paragraph("Exercise {}   {}".format(number, block["title"]), heading_style)
+    if theme.name == "ivory":
+        from .pdf_headings import SectionHeading
+
+        heading = SectionHeading(number, block["title"], theme)
+    else:
+        heading = paragraph("Exercise {}   {}".format(number, block["title"]), heading_style)
+    exercise_heading = content_panel([heading], width, theme) if on_paper else heading
+    exercise_heading.keepWithNext = True
     story = [
         CondPageBreak(BLOCK_START_SPACE),
-        white_panel([heading], width) if on_paper else heading,
+        exercise_heading,
         Spacer(1, 6),
     ]
     stage_reports = []
@@ -415,7 +436,7 @@ def render_drill_pdf(worksheet, destination, mode="questions"):
         header.append(paragraph(
             "Name: ________________________    Date: ______________", style["body"]
         ))
-        story = [white_panel(header, width), Spacer(1, 10)]
+        story = [content_panel(header, width, theme), Spacer(1, 10)]
     else:
         story = header
 
@@ -427,11 +448,10 @@ def render_drill_pdf(worksheet, destination, mode="questions"):
         report.append(block_report)
 
     def footer(canvas, doc):
-        if on_paper:
-            draw_page_grid(canvas, PAGE_WIDTH, PAGE_HEIGHT, theme.grid_ink, theme.grid_width)
+        draw_page_background(canvas, PAGE_WIDTH, PAGE_HEIGHT, theme, squared=on_paper)
         canvas.saveState()
-        if on_paper:
-            canvas.setFillColor(colors.white)
+        if on_paper and theme.opaque_panels:
+            canvas.setFillColor(colors.HexColor(theme.paper_ink))
             canvas.rect(MARGIN - 4, 11 * mm - 3, PAGE_WIDTH - 2 * MARGIN + 8, 13, stroke=0, fill=1)
         canvas.setFont(theme.body_font, 8)
         canvas.setFillColor(colors.HexColor(theme.muted_ink))
