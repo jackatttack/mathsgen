@@ -18,7 +18,11 @@ ACTIONS = ("another", "facts", "hint", "tools", "answer", "flag")
 def content_digest(question, unordered_choices=False):
     choices = [asdict(choice.content) for choice in question.choices]
     if unordered_choices:
-        choices.sort(key=canonical_json)
+        if "multiple_choice" in question.answer:
+            # Different distractors must not disguise a repeated question.
+            choices = []
+        else:
+            choices.sort(key=canonical_json)
     visible = {
         "prompt": asdict(question.prompt),
         "visuals": question.visual_assets("questions"),
@@ -39,6 +43,9 @@ def encode_question(question):
         "settings": question.settings,
         "display": content_digest(question),
     }
+    if "multiple_choice" in question.answer:
+        payload["schema"] = 2
+        payload["multiple_choice_version"] = question.answer["multiple_choice"]["engine_version"]
     return base64.urlsafe_b64encode(
         canonical_json(payload).encode("utf-8")
     ).decode("ascii")
@@ -53,12 +60,19 @@ def decode_question(token):
     except Exception as error:
         raise ValueError("Unreadable question link") from error
     require(isinstance(data, dict), "Invalid question link")
-    require(set(data) == {
+    require(type(data.get("schema")) is int and data["schema"] in (1, 2),
+            "Unsupported question link version")
+    expected_fields = {
         "schema", "generator", "version", "seed",
         "difficulty", "settings", "display",
-    }, "Unexpected question link fields")
-    require(type(data["schema"]) is int and data["schema"] == 1,
-            "Unsupported question link version")
+    }
+    if data["schema"] == 2:
+        from .multiple_choice import ENGINE_VERSION
+        expected_fields.add("multiple_choice_version")
+        require(type(data.get("multiple_choice_version")) is int
+                and data["multiple_choice_version"] == ENGINE_VERSION,
+                "Multiple-choice rules have changed. Generate a new worksheet.")
+    require(set(data) == expected_fields, "Unexpected question link fields")
     require(isinstance(data["generator"], str), "Invalid generator ID")
     for field in ("version", "seed", "difficulty"):
         require(type(data[field]) is int, "Invalid " + field)
@@ -78,6 +92,12 @@ def source_question(token, registry):
         settings=data["settings"],
     )
     generator.validate(question)
+    if data["schema"] == 2:
+        from .multiple_choice import make_multiple_choice, validate_multiple_choice
+        question = make_multiple_choice(question)
+        require(question is not None,
+                "This multiple-choice form is no longer supported.")
+        validate_multiple_choice(question, generator)
     require(content_digest(question) == data["display"],
             "The original question no longer reproduces exactly. Generate a new worksheet.")
     return question
@@ -168,6 +188,13 @@ def new_question(source, registry, previous=None, seed_source=None):
     generator = registry.get(source.generator_id)
     require(generator.info.version == source.generator_version,
             "Generator version changed")
+    multiple_choice = "multiple_choice" in source.answer
+    if multiple_choice:
+        from .multiple_choice import (
+            make_multiple_choice, supported_levels, validate_multiple_choice,
+        )
+        require(source.difficulty in supported_levels(source.generator_id),
+                "This difficulty has no multiple-choice support.")
     seed_source = seed_source or (lambda: secrets.randbits(53))
     excluded = {content_digest(source, True), previous}
     for attempt in range(100):
@@ -176,28 +203,22 @@ def new_question(source, registry, previous=None, seed_source=None):
             settings=source.settings,
         )
         generator.validate(question)
+        if multiple_choice:
+            question = make_multiple_choice(question)
+            if question is None:
+                continue
+            validate_multiple_choice(question, generator)
         if content_digest(question, True) not in excluded:
             return question
     raise ValueError("Could not find a different question after 100 attempts.")
 
 
 def choice_flowables(question):
-    from .pdf import MathLine, paragraph, styles
-    from .content_rendering import content_flowables
-    style = styles()
-    result = []
-    for index, choice in enumerate(question.choices):
-        result.append(paragraph(chr(65 + index) + ".", style["label"]))
-        content = choice.content
-        if content.blocks:
-            result.extend(content_flowables(
-                content, style["body"], question.generator_id + " choice"
-            ))
-        elif content.math_tex:
-            result.append(MathLine(content.math_tex, size=12))
-        else:
-            result.append(paragraph(content.text, style["body"]))
-    return result
+    from .pdf import CONTENT_WIDTH, styles
+    from .pdf_choices import ChoiceGrid
+    if not question.choices:
+        return []
+    return [ChoiceGrid(question, styles(), CONTENT_WIDTH - 24)]
 
 
 def write_card(blocks, destination):

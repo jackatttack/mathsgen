@@ -32,6 +32,9 @@ def main():
             p = q.parameters
             if "context" in p:
                 continue  # worded forms are covered by smoke_linear_contexts.py
+            if p.get("form") == "fraction_sum":
+                # This rich-block form has its own independent/corruption/PDF smoke.
+                continue
             check_structure(p, level)
             if level == 3:
                 signs.add(p["n"] > 0)

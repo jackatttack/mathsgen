@@ -64,6 +64,9 @@ def check_structure(p, level):
 
 def generate(generator, context):
     rng, level = context.rng, context.difficulty
+    if level == 4 and rng.random() < 0.6:
+        from .linear_fraction_sums import generate as generate_sum
+        return generate_sum(generator, context)
     nonzero = list(range(-12, 0)) + list(range(1, 13))
     for _ in range(2000):
         p = {
@@ -102,6 +105,9 @@ def generate(generator, context):
 
 
 def validate(generator, q):
+    if isinstance(q.parameters, dict) and q.parameters.get("form") == "fraction_sum":
+        from .linear_fraction_sums import validate as validate_sum
+        return validate_sum(generator, q)
     require(q.generator_id == generator.info.id, "Generator mismatch")
     require(q.generator_version == generator.info.version, "Version mismatch")
     require(type(q.difficulty) is int and q.difficulty in (3, 4), "Invalid level")
@@ -118,6 +124,9 @@ def validate(generator, q):
 
 
 def validate_independently(q):
+    if isinstance(q.parameters, dict) and q.parameters.get("form") == "fraction_sum":
+        from .linear_fraction_sums import validate_independently as independent_sum
+        return independent_sum(q)
     import sympy
     x = sympy.Symbol("x")
     p = q.parameters

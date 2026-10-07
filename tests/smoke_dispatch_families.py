@@ -129,7 +129,9 @@ def main():
     from mathsgen.inequalities_family import InequalitiesFamily
     from mathsgen.lines_family import StraightLinesFamily
     from mathsgen.functions_family import FunctionsFamily
-    from mathsgen.sequences_family import SequencesFamily
+    from mathsgen.sequence_practice import (
+        ArithmeticSequences, QuadraticSequences, GeometricSequenceFamily,
+    )
     from mathsgen.expanding_family import ExpandingFamily
     from mathsgen.ratio_family import RatioFamily
 
@@ -137,7 +139,8 @@ def main():
     families = (StandardForm, PrimeFactorFamily, RoundingFamily, EstimationFamily,
                 BoundsFamily, FDPFamily, MixtureFamily, ProportionFamily,
                 SimultaneousFamily, InequalitiesFamily, StraightLinesFamily,
-                FunctionsFamily, SequencesFamily, ExpandingFamily, RatioFamily)
+                FunctionsFamily, ArithmeticSequences, QuadraticSequences,
+                GeometricSequenceFamily, ExpandingFamily, RatioFamily)
     for family in families:
         check_family(family(), specimen)
 

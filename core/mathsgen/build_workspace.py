@@ -157,6 +157,7 @@ class Workspace(ui.View):
         super().__init__()
         self.background_color = BOARD
         self.registry = registry
+        self.show_mcq_filter = True
         self.infos = {info.id: info for info in registry.list()}
         self.drill_levels = drill_levels_by_skill(registry)
         self.blocks = [dict(block) for block in blocks]
@@ -271,6 +272,13 @@ class SkillBoard(ui.View):
         self.background_color = BOARD
         self.topic = None
         self.grades = None
+        self.mcq_only = False
+        self.show_mcq_filter = getattr(workspace, "show_mcq_filter", False)
+        from .multiple_choice import supported_levels as mcq_levels
+        self.mcq_ids = {
+            info.id for info in workspace.infos.values()
+            if mcq_levels(info.id) or info.id == "number.indices.meaning_mcq"
+        }
         self.filters_open = False
         self.filters_button = flat_button(
             "▸ Filters · All subjects · Any grade",
@@ -293,9 +301,13 @@ class SkillBoard(ui.View):
         self.search.delegate = self
         # Our own placeholder, because the system one is unreadable on dark.
         self.placeholder = text_label("Search skills, topics or spec codes", 15, MUTED)
+        topic_choices = [("all", "All")]
+        if self.show_mcq_filter:
+            topic_choices.append(("mcq", "Multiple choice"))
+        topic_choices.extend(
+            (topic, topic_style(topic)[0]) for topic in workspace.topics)
         self.topic_strip, self.topic_chips = self.chip_row(
-            [("all", "All")] + [(topic, topic_style(topic)[0]) for topic in workspace.topics],
-            self.pick_topic)
+            topic_choices, self.pick_topic)
         self.grade_strip, self.grade_chips = self.chip_row(
             [("any", "Any grade")] + [(key, key.replace("Grades ", "G").replace("-", "–"))
                                       for key in GRADE_BANDS],
@@ -349,15 +361,21 @@ class SkillBoard(ui.View):
     def update_filter_summary(self):
         subject = topic_style(self.topic)[0] if self.topic else "All subjects"
         grade = "Grades {}–{}".format(*self.grades) if self.grades else "Any grade"
-        self.filters_button.title = "{} Filters · {} · {}".format(
-            "▾" if self.filters_open else "▸", subject, grade)
+        self.filters_button.title = "{} Filters · {} · {}{}".format(
+            "▾" if self.filters_open else "▸", subject, grade,
+            " · MCQ" if self.mcq_only else "")
 
     # -------------------------------------------------- filters
 
     def pick_topic(self, sender):
-        self.topic = None if sender.name == "all" else sender.name
-        if self.topic:
-            self.open_topics.add(self.topic)
+        if sender.name == "mcq":
+            if not self.show_mcq_filter:
+                return
+            self.mcq_only = not self.mcq_only
+        else:
+            self.topic = None if sender.name == "all" else sender.name
+            if self.topic:
+                self.open_topics.add(self.topic)
         self.fill_grid()
         self.grid.content_offset = (0, 0)
 
@@ -371,13 +389,16 @@ class SkillBoard(ui.View):
 
     def filtering(self):
         """Search or a grade band unfolds everything that matches."""
-        return bool((self.search.text or "").strip()) or self.grades is not None
+        return (bool((self.search.text or "").strip())
+                or self.grades is not None or self.mcq_only)
 
     def visible(self, group):
         """The group's skills that pass the grade band and search."""
         words = (self.search.text or "").lower().split()
         shown = []
         for info in group["infos"]:
+            if self.mcq_only and info.id not in self.mcq_ids:
+                continue
             entry = self.workspace.entries.get(info.id)
             if entry is None:
                 continue
@@ -394,7 +415,10 @@ class SkillBoard(ui.View):
     def style_chips(self):
         self.update_filter_summary()
         for chip in self.topic_chips:
-            chosen = (chip.name == "all" and self.topic is None) or chip.name == self.topic
+            chosen = (
+                self.mcq_only if chip.name == "mcq"
+                else (chip.name == "all" and self.topic is None) or chip.name == self.topic
+            )
             colour = ACTIVE if chip.name == "all" else TOPIC_COLOURS.get(chip.name, ACTIVE)
             chip.background_color = colour if chosen else TILE
             chip.tint_color = "white" if chosen else TEXT
@@ -874,6 +898,8 @@ class BlockCard(ui.View):
         self.info = workspace.infos[block["generator_id"]]
         self.colour = workspace.colour_for(block["generator_id"])
         self.has_drill = self.info.id in workspace.drill_levels
+        from .multiple_choice import supported_levels as mcq_levels
+        self.mcq_levels = mcq_levels(self.info.id)
         self.background_color = CARD
         self.corner_radius = RADIUS
         self.stripe = ui.View()
@@ -897,6 +923,12 @@ class BlockCard(ui.View):
         self.apply_switch = ui.Switch()
         self.apply_switch.action = self.change_apply
         self.apply_switch.tint_color = ACTIVE
+        self.mcq_label = text_label(
+            "Multiple choice · " + "/".join(map(str, self.mcq_levels)),
+            14, INK, bold=True)
+        self.mcq_switch = ui.Switch()
+        self.mcq_switch.action = self.change_multiple_choice
+        self.mcq_switch.tint_color = ACTIVE
         self.count_label = text_label("Questions", 14, INK, bold=True)
         self.minus = flat_button("−", self.change_count, PAPER, INK, 18)
         self.minus.name = "-1"
@@ -935,6 +967,7 @@ class BlockCard(ui.View):
         self.hide_button = flat_button("Hide", self.hide, self.colour, "white", 13)
         self.row_views = {
             "drill": [self.drill_label, self.drill_switch, self.apply_label, self.apply_switch],
+            "mcq": [self.mcq_label, self.mcq_switch],
             "count": [self.count_label, self.minus, self.count_value, self.plus],
             "slider": [self.count_slider],
             "actions": [self.actions_button, self.close_button],
@@ -952,9 +985,10 @@ class BlockCard(ui.View):
 
     def rows(self):
         """Control rows shown when open; skills without drill skip that row."""
-        rows = (["drill"] if self.has_drill else []) + [
-            "count", "slider", "levels", "actions",
-        ]
+        rows = (["drill"] if self.has_drill else [])
+        if self.mcq_levels:
+            rows.append("mcq")
+        rows.extend(["count", "slider", "levels", "actions"])
         if self.actions_open:
             rows.extend(["move", "buttons"])
         return rows
@@ -987,6 +1021,9 @@ class BlockCard(ui.View):
                 self.drill_switch.frame = (68, y + 1, 51, 31)
                 self.apply_label.frame = (width - 150, y, 82, 32)
                 self.apply_switch.frame = (width - 63, y + 1, 51, 31)
+            elif row == "mcq":
+                self.mcq_label.frame = (16, y, width - 90, 32)
+                self.mcq_switch.frame = (width - 63, y + 1, 51, 31)
             elif row == "count":
                 self.count_label.frame = (16, y, width - 170, 34)
                 self.minus.frame = (width - 152, y, 40, 34)
@@ -1029,6 +1066,9 @@ class BlockCard(ui.View):
         drill = block["kind"] == "drill"
         self.apply_label.hidden = self.apply_switch.hidden = not drill
         self.drill_switch.value = drill
+        self.mcq_switch.value = bool(block.get("multiple_choice", False))
+        self.mcq_switch.enabled = not drill and bool(self.mcq_levels)
+        self.mcq_switch.alpha = self.mcq_label.alpha = 0.35 if drill else 1
         self.apply_switch.value = bool(block.get("apply", True))
         self.count_label.text = "Items per level" if drill else "Questions"
         self.count_value.text = str(block["count"])
@@ -1036,6 +1076,8 @@ class BlockCard(ui.View):
         self.count_slider.value = (block["count"] - 1) / max(1, limit - 1)
         self.actions_button.title = "▾ Actions" if self.actions_open else "▸ Actions"
         supported = supported_levels(self.info, self.sheet.workspace.drill_levels, block["kind"])
+        if block.get("multiple_choice", False):
+            supported = self.mcq_levels
         for pill in self.level_pills:
             level = int(pill.name)
             chosen = level in block["levels"]
@@ -1072,9 +1114,22 @@ class BlockCard(ui.View):
         kind = "drill" if sender.value else "questions"
         supported = supported_levels(self.info, self.sheet.workspace.drill_levels, kind)
         block["kind"] = kind
+        if kind == "drill":
+            block["multiple_choice"] = False
         block["levels"] = [level for level in block["levels"] if level in supported] or list(supported)
         block["count"] = min(block["count"], maximum_count(kind))
         self.settings_changed("drill on" if sender.value else "drill off")
+
+    def change_multiple_choice(self, sender):
+        """Commit MCQ mode locally; keep only explicitly supported levels."""
+        enabled = bool(sender.value) and bool(self.mcq_levels)
+        enabled = enabled and self.block["kind"] == "questions"
+        self.block["multiple_choice"] = enabled
+        if enabled:
+            self.block["levels"] = [
+                level for level in self.block["levels"] if level in self.mcq_levels
+            ] or list(self.mcq_levels)
+        self.settings_changed("multiple choice on" if enabled else "multiple choice off")
 
     def change_apply(self, sender):
         self.block["apply"] = bool(sender.value)
@@ -1116,6 +1171,8 @@ class BlockCard(ui.View):
 
     def toggle_level(self, sender):
         level = int(sender.name)
+        if self.block.get("multiple_choice", False) and level not in self.mcq_levels:
+            return
         levels = set(self.block["levels"])
         if level in levels:
             if len(levels) > 1:   # a block always keeps at least one level

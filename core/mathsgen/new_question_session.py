@@ -31,6 +31,12 @@ class NewQuestionSession:
         self.levels = tuple(sorted(
             registry.get(source.generator_id).info.difficulty_descriptions
         ))
+        if "multiple_choice" in source.answer:
+            from .multiple_choice import supported_levels
+            self.levels = tuple(
+                level for level in self.levels
+                if level in supported_levels(source.generator_id)
+            )
         require(bool(self.levels), "Generator has no advertised difficulty levels")
         require(source.difficulty in self.levels,
                 "Original question difficulty is not supported")

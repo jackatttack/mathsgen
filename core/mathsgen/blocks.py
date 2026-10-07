@@ -18,14 +18,15 @@ import hashlib
 from .core import canonical_json, require
 from .drill import DEFAULT_APPLY_ITEMS, MAXIMUM_ITEMS_PER_STAGE, build_drill, drill_skills
 from .worksheets import Worksheet, build_worksheet
+from .multiple_choice import supported_levels as multiple_choice_levels
 
 
-BUILDER_VERSION = 1
+BUILDER_VERSION = 2
 BLOCK_KINDS = ("questions", "drill")
 
 # ------------------------------------------------------------ editable policy
 
-MAXIMUM_QUESTIONS_PER_BLOCK = 40
+MAXIMUM_QUESTIONS_PER_BLOCK = 200
 
 
 # ------------------------------------------------------------ building
@@ -75,6 +76,11 @@ def checked_block(block, number, infos, drill_levels):
     require(info is not None, name + ": this skill is no longer available.")
     kind = block.get("kind", "questions")
     require(kind in BLOCK_KINDS, "{}: unknown block kind {!r}.".format(name, kind))
+    multiple_choice = block.get("multiple_choice", False)
+    require(type(multiple_choice) is bool,
+            name + ": multiple_choice must be true or false.")
+    require(not (multiple_choice and kind == "drill"),
+            name + ": multiple choice is available for standard questions, not drills.")
     count = block.get("count")
     require(type(count) is int and count >= 1, name + ": enter a positive count.")
     levels = block.get("levels")
@@ -94,6 +100,13 @@ def checked_block(block, number, infos, drill_levels):
         require(count <= MAXIMUM_QUESTIONS_PER_BLOCK,
                 "{}: use at most {} questions.".format(
                     name, MAXIMUM_QUESTIONS_PER_BLOCK))
+    if multiple_choice:
+        supported = multiple_choice_levels(info.id)
+        require(bool(supported),
+                "{}: {} has no multiple-choice form yet.".format(name, info.title))
+        require(all(level in supported for level in levels),
+                "{}: {} supports multiple choice at difficulty {} only.".format(
+                    name, info.title, ", ".join(map(str, supported))))
     unsupported = [level for level in levels if level not in supported]
     require(not unsupported, "{}: {} {} at difficulty {} only.".format(
         name, info.title, "drills" if kind == "drill" else "runs",
@@ -106,6 +119,7 @@ def checked_block(block, number, infos, drill_levels):
         "levels": levels,
         "count": count,
         "apply": bool(block.get("apply", True)) if kind == "drill" else False,
+        "multiple_choice": multiple_choice,
     }
 
 
@@ -126,6 +140,7 @@ def build_one_block(registry, block, title, seed):
             "generator_ids": [block["generator_id"]],
             "count": block["count"],
             "difficulties": block["levels"],
+            "multiple_choice": block.get("multiple_choice", False),
         }],
     }, seed, registry)
 

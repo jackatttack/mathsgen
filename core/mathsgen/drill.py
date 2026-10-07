@@ -33,42 +33,57 @@ ATTEMPTS_PER_ITEM = 100
 PREFERRED_ATTEMPTS = 40
 # Diagrams in drill grids draw at this width (two columns on A4).
 DRILL_DIAGRAM_WIDTH = 230
-BUILDER_VERSION = 6
+BUILDER_VERSION = 8
 
 # Skills offered in drill mode, with the levels that suit a dense grid.
 # Chosen from dev/probes/probe_drill_candidates.py and probe_drill_visuals.py;
 # tests/smoke_drill.py builds and renders every entry. Edit freely, then rerun it.
 DRILL_SKILLS = {
+    "algebra.sequences.linear_nth": (1, 2, 3, 4),
+    "algebra.sequences.quadratic_nth": (1, 2, 3, 4),
+    "algebra.sequences.geometric": (1, 2, 3, 4),
     "algebra.expressions.like_terms": (1, 2, 3, 4),
-    "algebra.expanding.double_brackets": (1, 2, 3),
+    "algebra.expanding.double_brackets": (1, 2, 3, 4),
     "algebra.factorising.common_factor": (1, 2, 3, 4),
     "algebra.factorising.difference_of_squares": (1, 2, 3, 4),
     "algebra.substitution.values": (1, 2, 3, 4),
-    "algebra.linear.two_sided": (1, 2, 3),
-    "algebra.inequalities.linear": (2,),
+    "algebra.linear.two_sided": (1, 2, 3, 4),
+    "algebra.simultaneous.linear": (1, 2, 3, 4),
+    "algebra.inequalities.linear": (1, 2, 3, 4),
     "algebra.quadratic.factorisable_monic": (1, 2, 3, 4),
-    "algebra.quadratic.completing_square": (1,),
-    "algebra.rearranging.changing_subject": (1,),
+    "algebra.quadratic.factorisable_non_monic": (1, 2, 3, 4),
+    "algebra.quadratic.formula": (1, 2, 3, 4),
+    "algebra.quadratic.completing_square": (1, 2, 3, 4),
+    "algebra.quadratic.fractional_equation": (1, 2, 3, 4),
+    "algebra.functions.evaluate": (1, 2, 3, 4),
+    "algebra.fractions.manipulation": (1, 2, 3, 4),
+    "algebra.graphs.circle_equations": (1, 2, 3, 4),
+    "algebra.rearranging.changing_subject": (1, 2),
     "number.operations.order": (1, 2, 3, 4),
-    "number.integers.negatives": (1, 4),
-    "number.place_value.decimals": (1, 2, 3),
-    "number.fractions.addition": (1, 3, 4),
-    "number.fractions.multiplication": (1, 3),
-    "number.fractions.division": (1, 2, 4),
-    "number.fractions.mixed_numbers": (1,),
-    "number.fractions.of_amount": (1,),
-    "number.fractions.recurring_decimals": (1, 2),
-    "number.fdp.fraction_to_decimal": (1, 2, 3),
+    "number.integers.negatives": (1, 2, 3, 4),
+    "number.place_value.decimals": (1, 2, 3, 4),
+    "number.fractions.addition": (1, 2, 3, 4),
+    "number.fractions.multiplication": (1, 2, 3, 4),
+    "number.fractions.division": (1, 2, 3, 4),
+    "number.fractions.mixed_numbers": (1, 2, 3, 4),
+    "number.fractions.of_amount": (1, 2, 3, 4),
+    "number.fractions.recurring_decimals": (1, 2, 3, 4),
+    "number.fdp.fraction_to_decimal": (1, 2, 3, 4),
     "number.percentages.of_amount": (1, 2, 3, 4),
     "number.percentages.multiplier": (1, 2, 3, 4),
-    "number.rounding.decimal_places": (1, 3, 4),
-    "number.standard_form.calculations": (2, 3, 4),
-    "number.surds.manipulation": (1, 2, 3),
-    "number.primes.factorisation": (1, 2, 3),
+    "number.percentages.interpret_multiplier": (1, 2, 3, 4),
+    "number.percentages.reverse": (1, 2, 3, 4),
+    "number.rounding.decimal_places": (1, 2, 3, 4),
+    "number.standard_form.calculations": (1, 2, 3, 4),
+    "number.surds.manipulation": (1, 2, 3, 4),
+    "number.indices.rules": (1, 2, 3, 4),
+    "number.primes.factorisation": (1, 2, 3, 4),
     "number.units.area_volume": (1, 2, 3, 4),
-    "ratio.simplifying": (1,),
-    "geometry.trigonometry.exact_values": (1,),
-    "geometry.vectors.column": (1, 2),
+    "ratio.simplifying": (1, 2, 3, 4),
+    "ratio.compound_measures.rates": (1, 2, 3),
+    "ratio.money.problems": (1,),
+    "geometry.trigonometry.exact_values": (1, 2, 3, 4),
+    "geometry.vectors.column": (1, 2, 3, 4),
     # Diagram skills: a shared instruction, then one small diagram per item.
     "geometry.trigonometry.right_angled": (1, 2, 3, 4),
     "geometry.pythagoras.lengths": (1, 2, 3),
@@ -76,6 +91,21 @@ DRILL_SKILLS = {
     "geometry.angles.triangle": (1, 2, 3, 4),
     "geometry.angles.parallel_lines": (1, 2, 3, 4),
     "geometry.area.basic_shapes": (1, 2, 3, 4),
+    "geometry.area.compound_rectangles": (1, 2, 3, 4),
+    "geometry.circles.measures": (1, 2, 3, 4),
+    "geometry.circles.sectors": (1, 2, 3, 4),
+    "geometry.volume.prisms": (1, 2, 3, 4),
+    "geometry.surface_area.prisms": (1, 2, 3, 4),
+    "geometry.angles.polygons": (1, 2, 3),
+    "geometry.trigonometry.sine_rule": (1, 2, 3),
+    "geometry.trigonometry.cosine_rule": (1, 2),
+    "geometry.similarity.scale_factors": (1, 3),
+    "geometry.circle_theorems.centre_angle": (1, 2, 3, 4),
+    "geometry.circle_theorems.same_segment": (1, 2, 3, 4),
+    "geometry.circle_theorems.cyclic_quadrilateral": (1, 2, 3, 4),
+    "geometry.circle_theorems.tangents": (1, 2, 3, 4),
+    "geometry.circle_theorems.alternate_segment": (1, 2, 3, 4),
+    "geometry.circle_theorems.multi_step": (1, 2, 3),
     "algebra.graphs.straight_lines": (1, 2, 3),
 }
 DIAGRAM_SKILLS = frozenset({
@@ -85,6 +115,21 @@ DIAGRAM_SKILLS = frozenset({
     "geometry.angles.triangle",
     "geometry.angles.parallel_lines",
     "geometry.area.basic_shapes",
+    "geometry.area.compound_rectangles",
+    "geometry.circles.measures",
+    "geometry.circles.sectors",
+    "geometry.volume.prisms",
+    "geometry.surface_area.prisms",
+    "geometry.angles.polygons",
+    "geometry.trigonometry.sine_rule",
+    "geometry.trigonometry.cosine_rule",
+    "geometry.similarity.scale_factors",
+    "geometry.circle_theorems.centre_angle",
+    "geometry.circle_theorems.same_segment",
+    "geometry.circle_theorems.cyclic_quadrilateral",
+    "geometry.circle_theorems.tangents",
+    "geometry.circle_theorems.alternate_segment",
+    "geometry.circle_theorems.multi_step",
     "algebra.graphs.straight_lines",
 })
 # Dispatcher skills whose levels drill as one part per route (1a, 1b ...),
@@ -110,6 +155,40 @@ DRILL_INSTRUCTIONS = {
     ("geometry.area.basic_shapes", 1): "Work out the area of each shape.",
     ("geometry.area.basic_shapes", 2): "Work out the area of each shape.",
     ("geometry.area.basic_shapes", 3): "Work out the area of each shape.",
+    # Added 2026-10-07 after dev/probes/probe_diagram_carries_values.py showed
+    # every given number on the diagram (12/12 per level). Premises a drawing
+    # cannot state (tangent, centre, right angles) stay in the instruction.
+    ("geometry.angles.parallel_lines", 1): "The marked lines are parallel. Find the value of x.",
+    ("geometry.angles.parallel_lines", 2): "The marked lines are parallel. Find the value of x.",
+    ("geometry.angles.parallel_lines", 3): "The marked lines are parallel. Find the value of x.",
+    ("geometry.angles.parallel_lines", 4): "The marked lines are parallel. Find the value of x.",
+    ("geometry.angles.triangle", 1): "Find the size of angle x.",
+    ("geometry.area.compound_rectangles", 1): "All corners are right angles. Work out the shaded area of each shape.",
+    ("geometry.area.compound_rectangles", 2): "All corners are right angles. Work out the shaded area of each shape.",
+    ("geometry.area.compound_rectangles", 3): "All corners are right angles. Work out the shaded area of each shape.",
+    ("geometry.circle_theorems.centre_angle", 1): "O is the centre of each circle. Find the value of x.",
+    ("geometry.circle_theorems.centre_angle", 2): "O is the centre of each circle. Find the value of x.",
+    ("geometry.circle_theorems.centre_angle", 3): "O is the centre of each circle. Find the value of x.",
+    ("geometry.circle_theorems.same_segment", 1): "Find the value of x.",
+    ("geometry.circle_theorems.same_segment", 3): "Find the value of x.",
+    ("geometry.circle_theorems.cyclic_quadrilateral", 1): "Find the value of x.",
+    ("geometry.circle_theorems.cyclic_quadrilateral", 2): "Find the value of x.",
+    ("geometry.circle_theorems.cyclic_quadrilateral", 3): "Find the value of x.",
+    ("geometry.circle_theorems.tangents", 1): "O is the centre of each circle. Lines that touch a circle at one point are tangents. Find the value of x.",
+    ("geometry.circle_theorems.tangents", 2): "O is the centre of each circle. Lines that touch a circle at one point are tangents. Find the value of x.",
+    ("geometry.circle_theorems.tangents", 3): "O is the centre of each circle. Lines that touch a circle at one point are tangents. Find the value of x.",
+    ("geometry.circle_theorems.alternate_segment", 1): "Lines that touch a circle at one point are tangents; O marks the centre where shown. Find the value of x.",
+    ("geometry.circle_theorems.alternate_segment", 2): "Lines that touch a circle at one point are tangents; O marks the centre where shown. Find the value of x.",
+    ("geometry.circle_theorems.alternate_segment", 3): "Lines that touch a circle at one point are tangents; O marks the centre where shown. Find the value of x.",
+    ("geometry.circle_theorems.multi_step", 1): "O marks the centre where shown; lines that touch a circle at one point are tangents. Find the value of x, giving a reason for each step.",
+    ("geometry.circle_theorems.multi_step", 2): "O marks the centre where shown; lines that touch a circle at one point are tangents. Find the value of x, giving a reason for each step.",
+    ("geometry.circle_theorems.multi_step", 3): "O marks the centre where shown; lines that touch a circle at one point are tangents. Find the value of x, giving a reason for each step.",
+    ("geometry.volume.prisms", 1): "Work out the volume of each prism. Leave answers involving π in terms of π.",
+    ("geometry.volume.prisms", 2): "Work out the volume of each prism. Leave answers involving π in terms of π.",
+    ("geometry.volume.prisms", 3): "Work out the volume of each prism. Leave answers involving π in terms of π.",
+    ("geometry.surface_area.prisms", 1): "Work out the total surface area of each closed shape. Leave answers involving π in terms of π.",
+    ("geometry.surface_area.prisms", 2): "Work out the total surface area of each closed shape. Leave answers involving π in terms of π.",
+    ("geometry.similarity.scale_factors", 1): "The shapes in each pair are similar. Find the value of x.",
 }
 
 
@@ -202,6 +281,9 @@ def level_routes(generator, level):
     its equation). Drilling each route as its own part keeps every part's
     items the same form, so they share one instruction.
     """
+    practice_routes = getattr(generator, "drill_routes", None)
+    if practice_routes is not None:
+        return [list(route) for route in practice_routes[level]]
     routes = getattr(generator, "routes", None)
     if (
         generator.info.id in SPLIT_ROUTE_SKILLS
@@ -214,7 +296,8 @@ def level_routes(generator, level):
 def drill_parts(generator, level, count):
     """Drill stages for one level: one per route, sharing count between them."""
     routes = level_routes(generator, level)
-    if routes == [None] or count < MINIMUM_PART_ITEMS * len(routes):
+    dedicated_practice = getattr(generator, "drill_routes", None) is not None
+    if routes == [None] or (not dedicated_practice and count < MINIMUM_PART_ITEMS * len(routes)):
         stage = {"kind": "drill", "level": level, "count": count}
         instruction = DRILL_INSTRUCTIONS.get((generator.info.id, level))
         if instruction:
@@ -332,7 +415,14 @@ def build_drill(registry, blocks, title="Drill", seed=0):
                 levels = apply_level_order(stage["count"], stage["levels"])
             route = stage.get("route")
 
-            def accept(question, route=route):
+            def accept(question, route=route, kind=stage["kind"]):
+                # Level 4 mixes rationalising with rectangle applications.
+                # Keep the drill section focused even when retries fall back.
+                if (kind == "drill"
+                        and question.generator_id == "number.surds.manipulation"
+                        and question.difficulty == 4
+                        and "denominator" not in question.parameters):
+                    return False
                 return on_route(question, route) and renders_in_drill(question)
 
             for level in levels:

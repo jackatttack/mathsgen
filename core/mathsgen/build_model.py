@@ -99,7 +99,8 @@ def block_summary(block):
         applied = " + applied" if block.get("apply", True) else ""
         return "Drill · {} · {} per level{}".format(levels, block["count"], applied)
     noun = "question" if block["count"] == 1 else "questions"
-    return "{} {} · {}".format(block["count"], noun, levels)
+    prefix = "Multiple choice · " if block.get("multiple_choice", False) else ""
+    return prefix + "{} {} · {}".format(block["count"], noun, levels)
 
 
 def span_text(prefix, values, plural=None):

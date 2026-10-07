@@ -9,15 +9,15 @@ from .core import (
 
 INFO = GeneratorInfo(
     id="algebra.linear.two_sided",
-    version=4,
+    version=5,
     topic="algebra",
     subtopic="linear_equations",
-    title="Solve a linear equation with unknowns on both sides",
+    title="Solve linear equations",
     difficulty_descriptions={
         1: "Positive integer coefficients and solution; sometimes a think-of-a-number problem.",
         2: "Opposite-sign integer coefficients and a negative integer solution.",
         3: "Expand brackets for a fractional answer, or form and solve an equation from a context.",
-        4: "Clear different denominators, or form, solve and use an equation in a multi-step context.",
+        4: "Clear different denominators, add or subtract fractional expressions, or solve a multi-step context.",
     },
     tags=("equations", "linear", "unknowns_both_sides"),
 )

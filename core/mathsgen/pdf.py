@@ -369,7 +369,10 @@ def question_story(question, number, mode, specification, style, theme, width, h
             blocks.append(Paragraph(
                 action_links_markup(question, theme.link_ink), action_style,
             ))
-    if specification.get("show_source", True):
+    # Student MCQ sheets drop the source line to save height; answer and
+    # worked sheets keep it for the teacher.
+    student_mcq = mode == "questions" and bool(question.choices)
+    if specification.get("show_source", True) and not student_mcq:
         blocks.append(paragraph(source_line(question), style["source"]))
 
     student_assets = question.visual_assets("questions")
@@ -385,32 +388,9 @@ def question_story(question, number, mode, specification, style, theme, width, h
         if not beside:
             blocks.extend(visual_blocks(question, "questions"))
     if mode != "answers" and question.choices:
-        for index, choice in enumerate(question.choices):
-            content = choice.content
-            if content.blocks:
-                from .content_rendering import content_flowables
-                option = content_flowables(
-                    content, style["body"],
-                    question.generator_id + " choice " + str(index + 1),
-                )
-            else:
-                option = (
-                    MathLine(content.math_tex, size=12) if content.math_tex
-                    else paragraph(content.text, style["body"])
-                )
-            row = Table(
-                [[paragraph(chr(65 + index) + ".", style["label"]), option]],
-                colWidths=[25, width - (49 if mode == "questions" else 37)],
-                hAlign="LEFT",
-            )
-            row.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                ("TOPPADDING", (0, 0), (-1, -1), 2),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ]))
-            blocks.append(row)
+        from .pdf_choices import ChoiceGrid
+        blocks.append(ChoiceGrid(
+            question, style, width - (24 if mode == "questions" else 12)))
     if mode == "questions":
         # Themes control backing; reserved writing space stays transparent.
         blocks = [content_panel(blocks, width - 12, theme)]
@@ -419,7 +399,10 @@ def question_story(question, number, mode, specification, style, theme, width, h
             blocks.append(scene_working_row(question, width - 12, theme))
             blocks.append(Spacer(1, 6))
         else:
-            blocks.append(WorkingSpace(question.layout_hint.working_lines))
+            # Multiple choice: the student marks a letter, so no reserved
+            # working space; the options already end the question.
+            if not question.choices:
+                blocks.append(WorkingSpace(question.layout_hint.working_lines))
     elif mode == "answers":
         if question.answer_display.blocks:
             from .content_rendering import content_flowables

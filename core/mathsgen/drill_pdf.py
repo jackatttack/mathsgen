@@ -12,8 +12,11 @@ expression; "Find the length x." then a triangle), the lead-in prints once
 and those items show only the expression or the drawing.
 
 Items with a diagram are stacked: the label sits above the drawing so the
-drawing gets the whole column width. Drawings never exceed
-DRILL_DIAGRAM_WIDTH and need at least VISUAL_MINIMUM_WIDTH.
+drawing gets the whole column width. Scenes always draw at
+DRILL_DIAGRAM_WIDTH and are cropped to their content; a stage takes three
+columns when every cropped drawing (and its label) fits, otherwise fewer.
+Other visuals (tables, plots) draw at the column width, never above
+DRILL_DIAGRAM_WIDTH, and need at least VISUAL_MINIMUM_WIDTH.
 
 Columns: each stage tries its column choices widest first and keeps the
 first in which every item fits.
@@ -159,14 +162,28 @@ def prompt_text(question):
 
 
 def visual_flowables(question, audience, inner_width):
+    """Flowables for a drill item's diagrams.
+
+    A scene keeps its drill-width drawing (keep_scale), so fits() sees its
+    real cropped width: a small circle fits a three-column cell with
+    full-size labels, a wide one sends the stage to fewer columns. Tables
+    and plots still redraw to the column and refuse narrow ones.
+    """
     assets = question.visual_assets(audience)
     if not assets:
         return []
-    width = min(inner_width, DRILL_DIAGRAM_WIDTH)
-    if width < VISUAL_MINIMUM_WIDTH:
-        raise ValueError("Column too narrow for a diagram")
     from .visuals import VisualFlowable
-    return [VisualFlowable(asset, preferred_width=width) for asset in assets]
+    flowables = []
+    for asset in assets:
+        if asset.get("kind") == "scene":
+            flowables.append(VisualFlowable(
+                asset, preferred_width=DRILL_DIAGRAM_WIDTH, keep_scale=True))
+            continue
+        width = min(inner_width, DRILL_DIAGRAM_WIDTH)
+        if width < VISUAL_MINIMUM_WIDTH:
+            raise ValueError("Column too narrow for a diagram")
+        flowables.append(VisualFlowable(asset, preferred_width=width))
+    return flowables
 
 
 def make_cell(flowables, text, font, stacked):

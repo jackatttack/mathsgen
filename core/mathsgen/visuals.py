@@ -135,6 +135,57 @@ def arc_path(center, radius, start, sweep):
     return path
 
 
+def clip_segment(start, end, left, bottom, right, top):
+    """The part of a segment inside a rectangle (Liang-Barsky), or None.
+
+    Scene lines often stand for rays or lines that carry on past the
+    picture; clipping them to the canvas keeps the drawing its designed
+    size instead of letting a long ray run into the margin or the text.
+    """
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    low, high = 0.0, 1.0
+    for p, q in ((-dx, start[0] - left), (dx, right - start[0]),
+                 (-dy, start[1] - bottom), (dy, top - start[1])):
+        if p == 0:
+            if q < 0:
+                return None
+            continue
+        t = q / p
+        if p < 0:
+            if t > high:
+                return None
+            low = max(low, t)
+        else:
+            if t < low:
+                return None
+            high = min(high, t)
+    return ((start[0] + low * dx, start[1] + low * dy),
+            (start[0] + high * dx, start[1] + high * dy))
+
+
+def content_bounds(drawing):
+    """Bounds of a drawing's shapes, with every Line normalised.
+
+    ReportLab's Line.getBounds() returns its endpoints unsorted, so a line
+    drawn right-to-left or downwards slips past a plain getBounds(). Both
+    the canvas check and the crop in draw_scene rely on this instead.
+    """
+    from reportlab.graphics.shapes import Line
+    boxes = []
+    for shape in drawing.contents:
+        if isinstance(shape, Line):
+            boxes.append((min(shape.x1, shape.x2), min(shape.y1, shape.y2),
+                          max(shape.x1, shape.x2), max(shape.y1, shape.y2)))
+        else:
+            box = shape.getBounds()
+            if box:
+                boxes.append(box)
+    if not boxes:
+        return None
+    return (min(box[0] for box in boxes), min(box[1] for box in boxes),
+            max(box[2] for box in boxes), max(box[3] for box in boxes))
+
+
 def draw_scene(spec, width):
     scale = width / spec["width"]
     height = spec["height"] * scale
@@ -172,6 +223,12 @@ def draw_scene(spec, width):
             points = [point(value) for value in node["points"]]
             if kind == "line":
                 require(len(points) == 2, "Line needs two points")
+                # Same rectangle as the "Geometry extends outside diagram" check.
+                clipped = clip_segment(points[0], points[1], 1, caption_height,
+                                       width - 1, drawing.height - 1)
+                if clipped is None:
+                    continue
+                points = list(clipped)
                 add_segment(drawing, *points, dashed=node.get("dashed", False))
                 if node.get("arrow"):
                     end = points[1]
@@ -238,7 +295,7 @@ def draw_scene(spec, width):
             raise ValueError("Unsupported diagram node: " + str(kind))
 
     # This catches overflowing shapes as well as labels.
-    bounds = drawing.getBounds()
+    bounds = content_bounds(drawing)
     if bounds:
         require(bounds[0] >= 1 and bounds[1] >= caption_height
                 and bounds[2] <= width - 1 and bounds[3] <= drawing.height - 1,
@@ -252,7 +309,7 @@ def draw_scene(spec, width):
     # The design canvas provides coordinates, not required page whitespace.
     # Measure the finished diagram, including labels and curved geometry.
     # Move its existing shapes into a tighter canvas without rescaling them.
-    visible = drawing.getBounds()
+    visible = content_bounds(drawing)
     if visible is None:
         return drawing
 
@@ -347,11 +404,19 @@ def svg_text(spec, width=360):
 
 
 class VisualFlowable(Flowable):
-    """Fit geometry to the column without shrinking its typography."""
-    def __init__(self, spec, preferred_width=360):
+    """Fit geometry to the column without shrinking its typography.
+
+    keep_scale: a scene always draws at preferred_width, whatever width is
+    offered, and reports its cropped size. The caller then decides whether
+    that size fits. Drill grids use this so a small drawing can sit in a
+    narrow column without being redrawn smaller; everything else keeps the
+    default, which redraws to fit the space offered.
+    """
+    def __init__(self, spec, preferred_width=360, keep_scale=False):
         Flowable.__init__(self)
         self.spec = spec
         self.preferred_width = preferred_width
+        self.keep_scale = keep_scale
         self.hAlign = "CENTER"
         self.drawing = None
 
@@ -367,10 +432,11 @@ class VisualFlowable(Flowable):
         ):
             return self.width, self.height
 
-        self.drawing = drawing_for(
-            self.spec,
-            min(self.preferred_width, available_width),
-        )
+        if self.keep_scale and self.spec["kind"] == "scene":
+            drawing_width = self.preferred_width
+        else:
+            drawing_width = min(self.preferred_width, available_width)
+        self.drawing = drawing_for(self.spec, drawing_width)
         self.width, self.height = self.drawing.width, self.drawing.height
         return self.width, self.height
 

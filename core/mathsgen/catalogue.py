@@ -1,6 +1,7 @@
 """Explicit imports make curriculum coverage easy to inspect."""
 from .core import Registry
 from .linear_two_sided import TwoSidedLinear
+from .ratio_algebra import RatioAlgebra
 from .common_factor import CommonFactor
 from .fraction_addition import FractionAddition
 from .percentage_amount import PercentageAmount
@@ -11,7 +12,9 @@ from .two_counter_draws import WithReplacement, WithoutReplacement
 from .unknown_bag import UnknownBag
 from .prime_factor_family import PrimeFactorFamily
 from .index_meaning import IndexMeaning
-from .sequences_family import SequencesFamily
+from .sequence_practice import (
+    ArithmeticSequences, QuadraticSequences, GeometricSequenceFamily,
+)
 from .simultaneous_family import SimultaneousFamily
 from .reverse_percentage import ReversePercentage
 from .quadratic_monic import MonicQuadratic
@@ -110,6 +113,7 @@ from .three_d_trig import ThreeDTrig
 def build_registry():
     registry = Registry()
     registry.register(TwoSidedLinear())
+    registry.register(RatioAlgebra())
     registry.register(CommonFactor())
     registry.register(FractionAddition())
     registry.register(PercentageAmount())
@@ -121,7 +125,9 @@ def build_registry():
     registry.register(UnknownBag())
     registry.register(PrimeFactorFamily())
     registry.register(IndexMeaning())
-    registry.register(SequencesFamily())
+    registry.register(ArithmeticSequences())
+    registry.register(QuadraticSequences())
+    registry.register(GeometricSequenceFamily())
     registry.register(SimultaneousFamily())
     registry.register(ReversePercentage())
     registry.register(MonicQuadratic())
@@ -229,7 +235,8 @@ DISPATCH_FAMILIES = (
     StandardForm, PrimeFactorFamily, RoundingFamily, EstimationFamily,
     BoundsFamily, FDPFamily, MixtureFamily, ProportionFamily,
     SimultaneousFamily, InequalitiesFamily, StraightLinesFamily,
-    FunctionsFamily, SequencesFamily, ExpandingFamily, RatioFamily,
+    FunctionsFamily, ArithmeticSequences, QuadraticSequences,
+    GeometricSequenceFamily, ExpandingFamily, RatioFamily,
 )
 
 

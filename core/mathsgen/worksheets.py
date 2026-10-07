@@ -6,6 +6,7 @@ import random
 
 from .catalogue import build_registry
 from .core import canonical_json, require
+from .multiple_choice import make_multiple_choice, supported_levels, validate_multiple_choice
 
 
 @dataclass(frozen=True)
@@ -104,13 +105,15 @@ def build_worksheet(specification, seed=0, registry=None):
     for section_index, section in enumerate(sections):
         require(isinstance(section, dict), "Each section must be an object")
         require(
-            set(section) <= {"topic", "generator_ids", "count", "difficulties"},
+            set(section) <= {"topic", "generator_ids", "count", "difficulties", "multiple_choice"},
             "Unknown section field",
         )
         require(
             ("topic" in section) != ("generator_ids" in section),
             "Each section needs exactly one of topic or generator_ids",
         )
+        multiple_choice = section.get("multiple_choice", False)
+        require(type(multiple_choice) is bool, "multiple_choice must be true or false")
         count = section.get("count")
         require(type(count) is int and count > 0, "Section count must be positive")
         levels = section.get("difficulties", [1, 2, 3, 4])
@@ -143,6 +146,12 @@ def build_worksheet(specification, seed=0, registry=None):
                     level in generator.info.difficulty_descriptions,
                     "{} does not support difficulty {}".format(generator_id, level),
                 )
+                if multiple_choice:
+                    require(
+                        level in supported_levels(generator_id),
+                        "{} has no multiple-choice support at difficulty {}.".format(
+                            generator.info.title, level),
+                    )
 
         rng = random.Random(derived_seed(seed, "section", section_index))
         schedule = []
@@ -188,13 +197,21 @@ def build_worksheet(specification, seed=0, registry=None):
                     "visuals": question.visual_assets("questions"),
                 })
                 if fingerprint not in seen_prompts:
+                    if multiple_choice:
+                        adapted = make_multiple_choice(question)
+                        if adapted is None:
+                            continue
+                        validate_multiple_choice(adapted, generator)
+                        question = adapted
                     seen_prompts.add(fingerprint)
                     questions.append(question)
                     break
             else:
                 raise ValueError(
-                    "Could not find a unique question for section {}, slot {}. "
-                    "Reduce the count or broaden the specification.".format(section_index, slot)
+                    "Could not find a unique {}question for section {}, slot {}. "
+                    "Reduce the count or broaden the specification.".format(
+                        "multiple-choice " if multiple_choice else "",
+                        section_index + 1, slot + 1)
                 )
 
     if shuffle:
@@ -204,7 +221,7 @@ def build_worksheet(specification, seed=0, registry=None):
     # Python's sort is stable, so the shuffled order survives inside a band.
     questions.sort(key=lambda question: question.difficulty)
     identity_payload = {
-        "builder_version": 3,
+        "builder_version": 4,
         "seed": seed,
         "specification": specification,
         "question_ids": [question.id for question in questions],

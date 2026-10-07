@@ -20,7 +20,9 @@
     "algebra.quadratic.formula": {"spec": ["A18"], "years": [10, 10, 10, 11]},
     "algebra.quadratic.fractional_equation": {"spec": ["A4", "A18"], "years": [10, 10, 11, 11]},
     "algebra.rearranging.changing_subject": {"spec": ["A5"], "years": [9, 9, 10, 11]},
-    "algebra.sequences.linear_nth": {"spec": ["A23", "A25"], "years": [7, 8, 11, 11]},
+    "algebra.sequences.linear_nth": {"spec": ["A23", "A25"], "years": [7, 8, 8, 9]},
+    "algebra.sequences.quadratic_nth": {"spec": ["A23", "A25"], "years": [10, 10, 11, 11]},
+    "algebra.sequences.geometric": {"spec": ["A23", "A24"], "years": [9, 10, 11, 11]},
     "algebra.simultaneous.linear": {"spec": ["A19", "A21"], "years": [10, 10, 11, 11]},
     "algebra.substitution.values": {"spec": ["A2"], "years": [7, 7, 8, 9]},
     "data.averages.median_range": {"spec": ["S4"], "years": [7, 8, 9, 10]},
@@ -110,6 +112,7 @@
     "ratio.money.problems": {"spec": ["R10", "N13"], "years": [7, 8, 9, 10]},
     "ratio.proportion.direct": {"spec": ["R10", "R13"], "years": [10, 10, 11, 11]},
     "ratio.proportion.recipes": {"spec": ["R7", "R10"], "years": [7, 8, 9, 9]},
+    "ratio.changing.algebra": {"spec": ["R5", "R8", "A17", "A19", "A21"], "years": [10, 10, 11, 11]},
     "ratio.simplifying": {"spec": ["R4", "R5"], "years": [7, 8, 10, 10]}
   }
 }
