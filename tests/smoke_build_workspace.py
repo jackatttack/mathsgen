@@ -141,9 +141,11 @@ def main():
 
     step("06 fifty rapid plus taps")
     cards_before = list(sheet.cards)
+    start_count = plain_card.block["count"]
     for _ in range(50):
         plain_card.change_count(plain_card.plus)
-    check(plain_card.block["count"] == maximum_count("questions"), "count caps at the maximum")
+    check(plain_card.block["count"] == min(start_count + 50, maximum_count("questions")),
+          "plus taps add one each, capped at the maximum")
     check(sheet.cards == cards_before, "plus taps must not rebuild the cards")
     check(plain_card.count_value.text == str(plain_card.block["count"]), "count label updates")
     for _ in range(60):

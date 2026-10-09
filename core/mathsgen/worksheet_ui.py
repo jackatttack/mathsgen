@@ -113,6 +113,10 @@ class WorksheetBuilder(ui.View):
         self.background_color = PAPER
         self.tint_color = ACCENT
         self.registry = registry
+        # Only the Build sheet may also hold IB AI SL skills. Exam papers,
+        # quick start, mini papers and drill keep the GCSE-only registry.
+        from .ib.catalogue import build_sheet_registry
+        self.sheet_registry = build_sheet_registry(registry)
         self.root = Path(root)
         self.state_path = self.root / "worksheet_ui_settings.json"
         self.infos = registry.list()
@@ -376,6 +380,8 @@ class WorksheetBuilder(ui.View):
             self.footer.add_subview(view)
         self.settings_open = False
         self.drill_browser = None
+        # Build sheets only: mix all question blocks into one random order.
+        self.build_shuffle = False
         self.settings_button = button("▸ Worksheet settings", self.toggle_settings)
         self.settings_button.background_color = SURFACE
         self.scroll.add_subview(self.settings_button)
@@ -492,6 +498,7 @@ class WorksheetBuilder(ui.View):
             self.title_field.text = state["title"]
             self.order.selected_index = 1 if state.get("shuffle", True) else 0
             self.answers.value = bool(state.get("answers", True))
+            self.build_shuffle = bool(state.get("build_shuffle", False))
             theme = state.get("theme", THEME_CHOICES[0])
             self.theme_control.selected_index = (
                 THEME_CHOICES.index(theme) if theme in THEME_CHOICES else 0
@@ -524,7 +531,7 @@ class WorksheetBuilder(ui.View):
             if state.get("quick_band") in GRADE_BANDS:
                 self.quick_band = state["quick_band"]
             from .build_model import usable_blocks
-            self.build_blocks = usable_blocks(state.get("build_blocks", []), self.registry)
+            self.build_blocks = usable_blocks(state.get("build_blocks", []), self.sheet_registry)
             if state.get("mode") == "mini":
                 self.mode = "mini"
                 self.mode_control.selected_index = 0
@@ -568,6 +575,7 @@ class WorksheetBuilder(ui.View):
                 "title": self.title_field.text,
                 "shuffle": self.order.selected_index == 1,
                 "answers": self.answers.value,
+                "build_shuffle": self.build_shuffle,
                 "theme": THEME_CHOICES[self.theme_control.selected_index],
                 "expanded_groups": sorted(self.expanded_groups),
                 "expanded_topics": sorted(self.expanded_topics),
@@ -859,7 +867,7 @@ class WorksheetBuilder(ui.View):
         if not self.build_blocks:
             return "No blocks yet. Tap Edit sheet to add skills and arrange them."
         from .build_model import block_summary
-        titles = {info.id: info.title for info in self.infos}
+        titles = {info.id: info.title for info in self.sheet_registry.list()}
         lines = []
         for number, block in enumerate(self.build_blocks, 1):
             lines.append("{}. {}".format(number, titles.get(block["generator_id"], "?")))
@@ -875,14 +883,16 @@ class WorksheetBuilder(ui.View):
         from .build_workspace import Workspace
         if self.workspace is None:
             self.workspace = Workspace(
-                self.registry, self.build_blocks, self.title_field.text,
+                self.sheet_registry, self.build_blocks, self.title_field.text,
                 self.workspace_changed,
                 answers=self.answers.value,
+                shuffle=self.build_shuffle,
                 theme_index=self.theme_control.selected_index,
                 theme_names=[name.title() for name in THEME_CHOICES],
                 on_settings=self.workspace_settings,
                 on_generate=lambda: self.generate(None),
                 on_action=self.workspace_action,
+                gcse_registry=self.registry,
                 log_path=self.state_path.parent / "build_actions.log",
             )
             self.add_subview(self.workspace)
@@ -923,6 +933,7 @@ class WorksheetBuilder(ui.View):
 
     def workspace_settings(self, answers, theme_index):
         self.answers.value = answers
+        self.build_shuffle = bool(getattr(self.workspace, "shuffle_questions", False))
         self.theme_control.selected_index = 0
         self.save()
 
@@ -1046,6 +1057,7 @@ class WorksheetBuilder(ui.View):
             return
         self.save()
         include_answers = self.answers.value
+        shuffle_blocks = self.build_shuffle
         theme = THEME_CHOICES[self.theme_control.selected_index]
         self.busy = True
         self.generate_button.title = "Generating…"
@@ -1067,7 +1079,8 @@ class WorksheetBuilder(ui.View):
                     worksheet = build_worksheet(spec, seed, self.registry)
                 else:
                     from .blocks import build_block_sheet
-                    worksheet = build_block_sheet(self.registry, blocks, title, seed)
+                    worksheet = build_block_sheet(self.sheet_registry, blocks, title, seed,
+                                                  shuffle=shuffle_blocks)
                 # One place sets the PDF theme, for skill sets and mini papers alike.
                 from dataclasses import replace as with_changes
                 worksheet = with_changes(worksheet, specification=dict(

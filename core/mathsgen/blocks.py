@@ -14,6 +14,7 @@ records which run of questions belongs to which block, so the renderer can
 lay out each block in its own style on one continuous document.
 """
 import hashlib
+import random
 
 from .core import canonical_json, require
 from .drill import DEFAULT_APPLY_ITEMS, MAXIMUM_ITEMS_PER_STAGE, build_drill, drill_skills
@@ -31,8 +32,13 @@ MAXIMUM_QUESTIONS_PER_BLOCK = 200
 
 # ------------------------------------------------------------ building
 
-def build_block_sheet(registry, blocks, title="Worksheet", seed=0):
+def build_block_sheet(registry, blocks, title="Worksheet", seed=0, shuffle=False):
     """Build a reproducible sheet from blocks, in order.
+
+    shuffle mixes every question block into one randomly ordered run, placed
+    where the first question block stood. Drill blocks keep their place,
+    because their stages only make sense in order. The same seed always
+    gives the same order.
 
     Raises ValueError naming the first block with a problem, in words that
     can be shown to the teacher directly.
@@ -48,17 +54,24 @@ def build_block_sheet(registry, blocks, title="Worksheet", seed=0):
         for number, block in enumerate(blocks, 1)
     ]
 
-    questions, segments = [], []
+    # A run is (kind, questions, drill_blocks): one block's questions, in order.
+    runs = []
     for index, block in enumerate(checked):
         part = build_one_block(registry, block, title, block_seed(seed, index))
-        segment = {"kind": block["kind"], "start": len(questions),
-                   "count": len(part.questions)}
-        if block["kind"] == "drill":
-            segment["drill_blocks"] = part.specification["blocks"]
-        segments.append(segment)
-        questions.extend(part.questions)
+        drill_blocks = part.specification["blocks"] if block["kind"] == "drill" else None
+        runs.append((block["kind"], list(part.questions), drill_blocks))
+    if shuffle:
+        runs = shuffled_question_runs(runs, seed)
 
-    specification = {"mode": "blocks", "title": title,
+    questions, segments = [], []
+    for kind, run_questions, drill_blocks in runs:
+        segment = {"kind": kind, "start": len(questions), "count": len(run_questions)}
+        if kind == "drill":
+            segment["drill_blocks"] = drill_blocks
+        segments.append(segment)
+        questions.extend(run_questions)
+
+    specification = {"mode": "blocks", "title": title, "shuffle": bool(shuffle),
                      "blocks": checked, "segments": segments}
     identity = hashlib.sha256(canonical_json({
         "builder": "blocks", "builder_version": BUILDER_VERSION,
@@ -143,6 +156,23 @@ def build_one_block(registry, block, title, seed):
             "multiple_choice": block.get("multiple_choice", False),
         }],
     }, seed, registry)
+
+
+def shuffled_question_runs(runs, seed):
+    """Pool every question run into one shuffled run where the first one stood.
+
+    Drill runs are kept, in place and unchanged.
+    """
+    pooled = [question for kind, run, _ in runs if kind == "questions" for question in run]
+    random.Random(block_seed(seed, "shuffle")).shuffle(pooled)
+    result, placed = [], False
+    for kind, run, drill_blocks in runs:
+        if kind == "drill":
+            result.append((kind, run, drill_blocks))
+        elif not placed:
+            result.append(("questions", pooled, None))
+            placed = True
+    return result
 
 
 def block_seed(seed, index):

@@ -137,7 +137,7 @@
     "ratio.money.problems": {"grades": [2, 3, 4, 5]},
     "ratio.proportion.direct": {"grades": [5, 6, 7, 7]},
     "ratio.proportion.recipes": {"grades": [2, 3, 4, 4]},
-    "ratio.changing.algebra": {"grades": [5, 6, 8, 9]},
+    "ratio.changing.algebra": {"grades": [8, 8, 8, 9]},
     "ratio.simplifying": {"grades": [2, 3, 5, 6]}
   }
 }

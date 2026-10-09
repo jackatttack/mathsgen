@@ -17,7 +17,8 @@ Stability rules (this replaced a slide-over version that could crash):
 Recent actions are written to log_path so a crash names its last tap.
 
 The host hears about changes through on_change(blocks, title), settings
-through on_settings(answers, theme_index), Generate through on_generate()
+through on_settings(answers, theme_index) (the host reads shuffle_questions
+for the shuffle switch), Generate through on_generate()
 and preview actions through on_action(name). Data decisions live in
 build_model.py and topic_browser.py; this module draws and reacts.
 """
@@ -59,7 +60,7 @@ from .ui_design import HEADER as HEADER_TILE  # noqa: E402
 
 TOPIC_COLOURS = dict.fromkeys(
     ("number", "algebra", "ratio", "geometry", "probability", "data",
-     "problem_solving"), GREEN,
+     "problem_solving", "ib_ai_sl"), GREEN,
 )
 
 RADIUS = 7
@@ -153,7 +154,8 @@ class Workspace(ui.View):
 
     def __init__(self, registry, blocks, title, on_change, answers=True,
                  theme_index=0, theme_names=("Ivory",),
-                 on_settings=None, on_generate=None, on_action=None, log_path=None):
+                 on_settings=None, on_generate=None, on_action=None, log_path=None,
+                 gcse_registry=None, shuffle=False):
         super().__init__()
         self.background_color = BOARD
         self.registry = registry
@@ -163,17 +165,24 @@ class Workspace(ui.View):
         self.blocks = [dict(block) for block in blocks]
         self.on_change = on_change
         self.on_settings = on_settings
+        # Mix all question blocks into one random order when generating.
+        self.shuffle_questions = bool(shuffle)
         self.on_generate = on_generate
         self.on_action = on_action
         self.log = ActionLog(log_path)
         self.load_error = ""
+        # GCSE skill details come from GCSE curriculum tags alone. IB skills,
+        # present only in the Build sheet registry, get their own entries.
+        library = gcse_registry or registry
         try:
-            sections = library_sections(registry, load_level_tags(registry), self.drill_levels)
+            sections = library_sections(library, load_level_tags(library), self.drill_levels)
         except Exception as error:
             sections = []
             self.load_error = "Skill details unavailable: " + str(error)
         self.entries = {entry["generator_id"]: entry
                         for _, entries in sections for entry in entries}
+        from .ib.catalogue import library_entries
+        self.entries.update(library_entries(registry))
         self.groups = groups_for(list(self.infos.values()))
         present = {group["topic"] for group in self.groups}
         self.topics = [topic for topic in ORDER if topic in present] + sorted(present - set(ORDER))
@@ -666,6 +675,11 @@ class SheetView(ui.View):
         self.answers_switch.value = bool(answers)
         self.answers_switch.tint_color = ACTIVE
         self.answers_switch.action = self.change_settings
+        self.shuffle_label = text_label("Shuffle questions", 14, INK, bold=True)
+        self.shuffle_switch = ui.Switch()
+        self.shuffle_switch.value = bool(getattr(workspace, "shuffle_questions", False))
+        self.shuffle_switch.tint_color = ACTIVE
+        self.shuffle_switch.action = self.change_settings
         self.style_control = ui.SegmentedControl()
         self.style_control.segments = list(theme_names)
         self.style_control.selected_index = theme_index
@@ -675,6 +689,11 @@ class SheetView(ui.View):
         self.open_button = self.result_button("Open", "open_questions")
         self.answers_button = self.result_button("Answers", "open_answers")
         self.save_button = self.result_button("Save", "save")
+        # One slider sets the count of every question block at once.
+        self.all_counts_label = text_label("All questions", 14, INK, bold=True)
+        self.all_counts_slider = ui.Slider()
+        self.all_counts_slider.tint_color = ACTIVE
+        self.all_counts_slider.action = self.slide_all_counts
         self.scroll = ui.ScrollView()
         self.scroll.background_color = PAPER
         self.empty = text_label(
@@ -684,11 +703,14 @@ class SheetView(ui.View):
         self.cards = []
         self.results_shown = False
         for view in (self.title_field, self.generate_button, self.summary,
-                     self.answers_label, self.answers_switch, self.style_control,
+                     self.answers_label, self.answers_switch,
+                     self.shuffle_label, self.shuffle_switch, self.style_control,
                      self.result_status, self.open_button, self.answers_button,
-                     self.save_button, self.scroll, self.empty):
+                     self.save_button, self.all_counts_label, self.all_counts_slider,
+                     self.scroll, self.empty):
             self.add_subview(view)
         self.sync_results({})
+        self.sync_all_counts()
 
     def result_button(self, title, name):
         button = flat_button(title, self.run_action, CARD, ACTIVE, 13)
@@ -704,11 +726,17 @@ class SheetView(ui.View):
         self.update_settings_summary()
         self.title_field.hidden = not self.settings_open
         self.answers_label.hidden = self.answers_switch.hidden = not self.settings_open
+        self.shuffle_label.hidden = self.shuffle_switch.hidden = not self.settings_open
         self.style_control.hidden = True
         self.title_field.frame = (left, 54, width, 38)
         self.answers_label.frame = (left, 102, width - 65, 32)
         self.answers_switch.frame = (left + width - 51, 102, 51, 31)
-        top = 144 if self.settings_open else 54
+        self.shuffle_label.frame = (left, 142, width - 65, 32)
+        self.shuffle_switch.frame = (left + width - 51, 142, 51, 31)
+        top = 184 if self.settings_open else 54
+        self.all_counts_label.frame = (left, top, 150, 32)
+        self.all_counts_slider.frame = (left + 156, top, width - 156, 32)
+        top += 40
         self.generate_button.hidden = self.summary.hidden = external
         for control in (self.result_status, self.open_button,
                         self.answers_button, self.save_button):
@@ -732,8 +760,9 @@ class SheetView(ui.View):
     def update_settings_summary(self):
         title = self.title_field.text.strip() or "Untitled worksheet"
         answers = "Answers on" if self.answers_switch.value else "Answers off"
-        self.settings_button.title = "{} {} · {}".format(
-            "▾" if self.settings_open else "▸", title, answers)
+        order = " · Shuffled" if self.shuffle_switch.value else ""
+        self.settings_button.title = "{} {} · {}{}".format(
+            "▾" if self.settings_open else "▸", title, answers, order)
 
     def toggle_settings(self, sender):
         if self.settings_open:
@@ -750,6 +779,7 @@ class SheetView(ui.View):
 
     def change_settings(self, sender):
         self.workspace.log.add("settings")
+        self.workspace.shuffle_questions = bool(self.shuffle_switch.value)
         self.update_settings_summary()
         if self.workspace.on_settings:
             self.workspace.on_settings(bool(self.answers_switch.value),
@@ -836,6 +866,48 @@ class SheetView(ui.View):
         self.empty.hidden = bool(self.cards)
 
     def update_summary(self):
+        self.update_total()
+        self.sync_all_counts()
+
+    def question_cards(self):
+        """Cards whose block is ordinary questions; drill counts mean items per level."""
+        return [card for card in self.cards if card.block["kind"] == "questions"]
+
+    def sync_all_counts(self):
+        """Show the shared count when every question block agrees."""
+        cards = self.question_cards()
+        counts = {card.block["count"] for card in cards}
+        limit = maximum_count("questions")
+        self.all_counts_slider.enabled = bool(cards)
+        self.all_counts_slider.alpha = self.all_counts_label.alpha = 1 if cards else 0.4
+        if len(counts) == 1:
+            count = counts.pop()
+            self.all_counts_label.text = "All questions: {}".format(count)
+            self.all_counts_slider.value = (count - 1) / max(1, limit - 1)
+        else:
+            self.all_counts_label.text = "All questions: mixed" if cards else "All questions"
+
+    def slide_all_counts(self, sender):
+        """Set every question block to the slider's count; drill blocks keep theirs.
+
+        Changes only counts and card labels: no relayout, no rebuild, saved at once.
+        """
+        limit = maximum_count("questions")
+        count = 1 + int(sender.value * (limit - 1) + 0.5)
+        self.all_counts_label.text = "All questions: {}".format(count)
+        changed = [card for card in self.question_cards() if card.block["count"] != count]
+        if not changed:
+            return
+        for card in changed:
+            card.block["count"] = count
+            card.summary.text = block_summary(card.block)
+            if card.opened:
+                card.show_controls()
+        self.workspace.log.add("all counts {}".format(count))
+        self.update_total()
+        self.workspace.notify()
+
+    def update_total(self):
         blocks = self.workspace.blocks
         total = sum(block_size(block) for block in blocks)
         self.summary.text = "{} block{} · {} questions".format(
@@ -964,6 +1036,8 @@ class BlockCard(ui.View):
         self.top_button.name = "top"
         self.duplicate_button = flat_button("Duplicate", self.duplicate, PAPER, INK, 13)
         self.remove_button = flat_button("Remove", self.remove, PAPER, DANGER, 13)
+        self.remove_button.border_width = 1
+        self.remove_button.border_color = PAPER_EDGE
         self.hide_button = flat_button("Hide", self.hide, self.colour, "white", 13)
         self.row_views = {
             "drill": [self.drill_label, self.drill_switch, self.apply_label, self.apply_switch],
@@ -973,9 +1047,11 @@ class BlockCard(ui.View):
             "actions": [self.actions_button, self.close_button],
             "levels": [self.level_label, *self.level_pills],
             "move": [self.up_button, self.down_button, self.top_button],
-            "buttons": [self.duplicate_button, self.remove_button, self.hide_button],
+            "buttons": [self.duplicate_button, self.hide_button],
         }
-        for view in (self.stripe, self.badge, self.heading, self.summary, self.hint):
+        # Remove stays on every card, open or closed: it is used often in lessons.
+        for view in (self.stripe, self.badge, self.heading, self.summary, self.hint,
+                     self.remove_button):
             self.add_subview(view)
         for views in self.row_views.values():
             for view in views:
@@ -1012,8 +1088,8 @@ class BlockCard(ui.View):
         self.badge.frame = (16, CARD_TOP + 1, 26, 24)
         self.heading.frame = (50, CARD_TOP, width - 112, title)
         self.hint.frame = (width - 60, CARD_TOP + 2, 48, 22)
-        self.summary.frame = (50, CARD_TOP + title + 4, width - 62, 20)
-        third = (width - 32 - 16) / 3
+        self.summary.frame = (50, CARD_TOP + title + 4, width - 146, 20)
+        self.remove_button.frame = (width - 88, CARD_TOP + title + 1, 76, 26)
         y = self.closed_height(width)
         for row in self.rows():
             if row == "drill":
@@ -1039,9 +1115,10 @@ class BlockCard(ui.View):
                 for index, pill in enumerate(self.level_pills):
                     pill.frame = (width - 12 - 4 * 46 + index * 46, y, 40, 34)
             else:
-                trio = self.row_views[row]
-                for index, button in enumerate(trio):
-                    button.frame = (16 + index * (third + 8), y, third, 34)
+                buttons = self.row_views[row]
+                share = (width - 32 - 8 * (len(buttons) - 1)) / len(buttons)
+                for index, button in enumerate(buttons):
+                    button.frame = (16 + index * (share + 8), y, share, 34)
             y += CARD_ROW
 
     # -------------------------------------------------- show

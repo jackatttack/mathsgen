@@ -8,6 +8,18 @@ TOPICS = {
     "probability": ("Probability", "#BE185D", "#FCE8F1"),
     "data": ("Statistics", "#15803D", "#E8F5EC"),
     "problem_solving": ("Problem solving", "#0F766E", "#DCF5EF"),
+    # A separate course, shown last. Only the Build sheet registry contains it.
+    "ib_ai_sl": ("IB Maths AI SL", "#4338CA", "#ECEBFF"),
+}
+IB_GROUPS = {
+    "financial_mathematics": "Financial mathematics",
+    "sequences_and_series": "Sequences & series",
+    "statistics_and_probability": "Statistics & probability",
+    "integration": "Calculus",
+    "differentiation": "Calculus",
+    "functions": "Functions & models",
+    "number_and_algebra": "Number & algebra",
+    "geometry_and_trigonometry": "Geometry & trigonometry",
 }
 ORDER = tuple(TOPICS)
 
@@ -55,6 +67,8 @@ def group_name(info):
         names = {"angles": "Angles", "pythagoras": "Pythagoras", "area": "Area"}
         if len(parts) > 1 and parts[1] in names:
             return names[parts[1]]
+    if info.topic == "ib_ai_sl" and info.subtopic in IB_GROUPS:
+        return IB_GROUPS[info.subtopic]
     return info.subtopic.replace("_", " ").title()
 
 
