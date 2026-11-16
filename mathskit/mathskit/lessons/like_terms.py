@@ -3,6 +3,8 @@ term and plenty of minus signs. Each family of like terms gets its own
 colour in the working. Problems carry meta['forms'] (question and answer
 as Python) for tests/smoke_lessons.py to evaluate.
 """
+from fractions import Fraction as F
+
 from .. import algebra
 from ..algebra import Term, mono
 from ..lesson import Fact, Lesson, Line, Problem, Stage, Worked
@@ -114,6 +116,60 @@ def stretch(rng):
     return build(rng, rng.sample(pool, rng.choice((3, 4))), negative=0.45, allow_cancel=True)
 
 
+def problems(rng):
+    """Stretch: a perimeter to simplify then solve, or an algebra pyramid."""
+    x_mono = mono('x')
+    if rng.random() < 0.5:
+        while True:
+            x = rng.randint(2, 12)
+            a, c = rng.randint(1, 5), rng.randint(1, 4)
+            b, d = rng.randint(-5, 9), rng.randint(-5, 9)
+            if a * x + b > 0 and c * x + d > 0 and (a, b) != (c, d):
+                break
+        length, width = [Term(a, x_mono), Term(b)], [Term(c, x_mono), Term(d)]
+        sides = [Term(t.coefficient, t.monomial) for t in length + width + length + width]
+        perimeter = algebra.collect(sides)
+        big_a, big_b = 2 * (a + c), 2 * (b + d)
+        total = big_a * x + big_b
+        lines = [Line('A rectangle has length %s and width %s. Write its perimeter as simply as '
+                      'possible, then find x when the perimeter is %d.'
+                      % (algebra.tex(length), algebra.tex(width), total)),
+                 Line('Add all four sides', ' + '.join('(%s)' % algebra.tex(side)
+                                                       for side in (length, width, length, width))),
+                 Line('Collect like terms', '%s = %s' % (algebra.tex(sides, algebra.family_colours(sides)),
+                                                        algebra.tex(perimeter))),
+                 Line('Set it equal to %d' % total, '%s = %d' % (algebra.tex(perimeter), total)),
+                 Line('Solve', r'%dx = %d \;\Rightarrow\; x = %d' % (big_a, total - big_b, x))]
+        answer = 'Perimeter %s, x = %d' % (algebra.tex(perimeter), x)
+        meta = {'forms': [algebra.plain(sides), algebra.plain(perimeter)],
+                'got': x, 'expected': (total - big_b) / F(big_a)}
+        return Problem(statement=lines[0].say, answer=answer, solution=Worked(lines, answer), meta=meta)
+    first, second = rng.sample('abxy', 2)
+
+    def brick():
+        return [Term(rng.randint(1, 6), mono(first)), Term(rng.randint(-4, 6), mono(second)),
+                Term(rng.randint(-5, 9))]
+
+    bottom = [brick() for _ in range(3)]
+    left, right = algebra.collect(bottom[0] + bottom[1]), algebra.collect(bottom[1] + bottom[2])
+    top = algebra.collect(left + right)
+    box = r'\boxed{%s}'
+    lines = [Line('In an algebra pyramid each brick is the sum of the two bricks under it. '
+                  'Find the top brick.', r' \; '.join(box % algebra.tex(b) for b in bottom)),
+             Line('Left middle brick: add the two under it',
+                  '(%s) + (%s) = %s' % (algebra.tex(bottom[0]), algebra.tex(bottom[1]), algebra.tex(left))),
+             Line('Right middle brick',
+                  '(%s) + (%s) = %s' % (algebra.tex(bottom[1]), algebra.tex(bottom[2]), algebra.tex(right))),
+             Line('Top brick: add the middle row',
+                  '(%s) + (%s) = %s' % (algebra.tex(left), algebra.tex(right), algebra.tex(top))),
+             Line('The whole pyramid',
+                  r'\begin{array}{c} %s \\ %s \; %s \\ %s \end{array}'
+                  % (box % algebra.tex(top), box % algebra.tex(left), box % algebra.tex(right),
+                     r' \; '.join(box % algebra.tex(b) for b in bottom)))]
+    answer = algebra.tex(top)
+    forms = [algebra.plain(bottom[0] + bottom[1] + bottom[1] + bottom[2]), algebra.plain(top)]
+    return Problem(statement=lines[0].say, answer=answer, solution=Worked(lines, answer),
+                   meta={'forms': forms})
 # --- Facts (editable) ---------------------------------------------------------
 
 FACTS = [
@@ -162,8 +218,12 @@ LESSON = Lesson(
         Stage('products', 'Products',
               r'$ab$ and $ba$ are the same term, since $a \times b = b \times a$.',
               stage_maker(products)),
-        Stage('stretch', 'Stretch',
+        Stage('stretch', 'Mixed terms',
               r'Several kinds of term and lots of minus signs. Keep each sign with the '
               r'term after it. A group can collect to $0$ and disappear.',
               stage_maker(stretch)),
+        Stage('problems', 'Stretch',
+              r'Collecting like terms inside a bigger problem: simplify a perimeter then solve '
+              r'for $x$, or build an algebra pyramid brick by brick.',
+              problems),
     ])

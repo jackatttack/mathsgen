@@ -44,15 +44,18 @@ class Plot:
     ('x^2 - 2x - 8') and the window. Pure data: the page builds the
     graph.Graph, so lessons need no sympy."""
 
-    def __init__(self, curves, x=(-10, 10), y=None, title=''):
+    def __init__(self, curves, x=(-10, 10), y=None, title='', square=False):
         self.curves = list(curves)
         self.x = x
         self.y = y
         self.title = title
+        self.square = square       # equal scales, so right angles look right
 
     def window(self):
         options = {'x': self.x, 'title': self.title}
-        if self.y is not None:
+        if self.square:
+            options['square'] = True
+        elif self.y is not None:
             options['y'] = self.y
         return options
 
@@ -83,10 +86,11 @@ class Fact:
     title; back is maths prose ($...$); figure is optional inline SVG,
     drawn with currentColor so it suits light and dark themes."""
 
-    def __init__(self, front, back, figure=None):
+    def __init__(self, front, back, figure=None, tex=None):
         self.front = front
         self.back = back
         self.figure = figure
+        self.tex = tex             # optional display maths (a table) under the back
 
 
 class Stage:

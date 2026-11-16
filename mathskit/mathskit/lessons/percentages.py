@@ -211,6 +211,64 @@ def repeated(rng):
     return worked(lines, answer, got, numbers.round_to(value, 2))
 
 
+STRETCH_CHANGES = (10, 20, 25, 30, 40, 50)
+
+
+def problems(rng):
+    """Stretch: successive changes, reversing several years, chains."""
+    kind = rng.choice(('successive', 'reverse_repeated', 'chain'))
+    if kind == 'successive':
+        up, down = rng.choice(STRETCH_CHANGES), rng.choice(STRETCH_CHANGES)
+        first, second = F(100 + up, 100), F(100 - down, 100)
+        overall = first * second
+        change = (overall - 1) * 100
+        word = 'increase' if change > 0 else 'decrease'
+        verdict = '%s%% %s' % (num(abs(change)), word) if change else 'no change'
+        lines = [Line('A price goes up by %d%% and then down by %d%%. What is the overall '
+                      'percentage change?' % (up, down)),
+                 Line('It is not %d%% take away %d%%: the second change is a percentage of the '
+                      'new price' % (up, down)),
+                 Line('Write each change as a multiplier',
+                      r'\times %s \quad \text{then} \quad \times %s' % (num(first), num(second))),
+                 Line('Multiply the multipliers for the overall change',
+                      r'%s \times %s = %s' % (num(first), num(second), num(overall))),
+                 Line('Compare with 1, which would be no change',
+                      r'%s \;\Rightarrow\; \text{%s}' % (num(overall), verdict.replace('%', r'\%')))]
+        price = F(100) * (100 + up) / 100 * (100 - down) / 100
+        return worked(lines, verdict, change, price - 100)
+    if kind == 'reverse_repeated':
+        rate, years = rng.choice((5, 10, 20, 25)), rng.choice((2, 3))
+        up = rng.random() < 0.4
+        left = 100 + rate if up else 100 - rate
+        m = F(left, 100)
+        original = F(rng.randint(2, 60) * 100)
+        final = original * m ** years
+        if up:
+            question = ('An investment grows by %d%% each year (compound interest). After %d years '
+                        'it is worth %s. How much was invested?')
+        else:
+            question = ('A car loses %d%% of its value each year. After %d years it is worth %s. '
+                        'What was it worth when new?')
+        lines = [Line(question % (rate, years, num(final))),
+                 Line('The multiplier for one year', r'100\%% %s %s = %s \;\to\; \times %s'
+                      % ('+' if up else '-', pct(rate), pct(left), num(m))),
+                 Line('Over %d years the value was multiplied by' % years,
+                      r'%s^{%d} = %s' % (num(m), years, num(m ** years))),
+                 Line('Reverse it: divide by that multiplier',
+                      r'%s \div %s = %s' % (num(final), num(m ** years), num(final / m ** years)))]
+        return worked(lines, num(final / m ** years), final / m ** years, original)
+    p, q = rng.choice((10, 20, 25, 50)), rng.choice((10, 20, 25, 40))
+    a_m, b_m = F(100 + p, 100), F(100 - q, 100)
+    overall = a_m * b_m * 100
+    lines = [Line('A is %d%% more than B. B is %d%% less than C. Write A as a percentage of C.'
+                  % (p, q)),
+             Line('B as a multiple of C', r'B = %s \times C' % num(b_m)),
+             Line('A as a multiple of B', r'A = %s \times B' % num(a_m)),
+             Line('Put them together: replace B',
+                  r'A = %s \times %s \times C = %s \times C' % (num(a_m), num(b_m), num(a_m * b_m))),
+             Line('As a percentage', r'A = %s \text{ of } C' % pct(overall))]
+    b_value = F(100) - q
+    return worked(lines, '%s%% of C' % num(overall), overall, b_value + b_value * p / 100)
 # --- Facts (editable) ---------------------------------------------------------
 
 BAR = (
@@ -285,4 +343,8 @@ LESSON = Lesson(
         Stage('repeated', 'Repeated change',
               r'Multiply by the multiplier once for every year: $A \times 1.05^{3}$.',
               repeated),
+        Stage('problems', 'Stretch',
+              r'Chain multipliers together and reverse them. Percentages of different amounts '
+              r'never just add up.',
+              problems),
     ])

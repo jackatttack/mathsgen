@@ -6,8 +6,9 @@ as Python, which tests/smoke_lessons.py evaluates at random values. Every
 form must agree, so a wrong factorisation fails the test.
 """
 import math
+from fractions import Fraction as F
 
-from .. import algebra
+from .. import algebra, diagrams
 from ..algebra import Term, mono
 from ..lesson import Fact, Lesson, Line, Problem, Stage, Worked
 
@@ -172,6 +173,68 @@ def factorise_ax2(rng):
     return worked(lines, forms)
 
 
+def area_figure(a, b):
+    """A (x + a) by (x + b) rectangle with an x by x square cut from its corner."""
+    return ('<svg viewBox="0 0 320 200" width="320" height="200" xmlns="http://www.w3.org/2000/svg" '
+            'fill="none" stroke="currentColor" stroke-width="2" '
+            'font-family="-apple-system, sans-serif">'
+            '<rect x="80" y="30" width="200" height="140"/>'
+            '<rect x="80" y="30" width="90" height="90" fill="currentColor" fill-opacity="0.15" '
+            'stroke-dasharray="5 4"/>'
+            + diagrams.label(180, 22, 'x + %d' % a) + diagrams.label(72, 106, 'x + %d' % b, 'end')
+            + diagrams.label(125, 80, 'x by x', size=13) + '</svg>')
+
+
+def problems(rng):
+    """Stretch: proof by expanding, unknown coefficients, an area to simplify."""
+    kind = rng.choice(('proof', 'coefficients', 'area'))
+    if kind == 'proof':
+        k = rng.randint(1, 5)
+        n, n2 = mono('n'), mono('n^2')
+        first = [Term(1, n2), Term(2 * k, n), Term(k * k)]
+        second = [Term(1, n2), Term(-2 * k, n), Term(k * k)]
+        lines = [Line('Show that (n + %d)\u00b2 - (n - %d)\u00b2 is always a multiple of %d'
+                      % (k, k, 4 * k), r'(n + %d)^{2} - (n - %d)^{2}' % (k, k)),
+                 Line('Expand the first bracket', r'(n + %d)^{2} = %s' % (k, tex(first))),
+                 Line('Expand the second bracket', r'(n - %d)^{2} = %s' % (k, tex(second))),
+                 Line('Subtract: the minus in front changes every sign in the bracket',
+                      '%s - (%s) = %dn' % (tex(first), tex(second), 4 * k)),
+                 Line('%dn is %d times a whole number, so it is always a multiple of %d'
+                      % (4 * k, 4 * k, 4 * k), r'%dn = %d \times n' % (4 * k, 4 * k))]
+        forms = ['(n+(%d))**2-(n-(%d))**2' % (k, k),
+                 plain(first) + '-(' + plain(second) + ')', '(%d)*n' % (4 * k)]
+        return worked(lines, forms)
+    if kind == 'coefficients':
+        while True:
+            m, c2, p = rng.randint(1, 3), nonzero(rng, 6), nonzero(rng, 7)
+            if m * c2 + p:
+                break
+        big_c, q = c2 * p, m * c2 + p
+        left = '(%s + p)(%s)' % (tex([Term(m, X)]), tex([Term(1, X), Term(c2)]))
+        right = '%s + qx %s %d' % (tex([Term(m, X2)]), '+' if big_c > 0 else '-', abs(big_c))
+        lines = [Line('Find the values of p and q', r'%s \equiv %s' % (left, right)),
+                 Line('Expand the left-hand side',
+                      '%s + px %s %dp' % (tex([Term(m, X2), Term(m * c2, X)]),
+                                          '+' if c2 > 0 else '-', abs(c2))),
+                 Line('Match the number terms', r'%dp = %d \;\Rightarrow\; p = %d' % (c2, big_c, p)),
+                 Line('Match the x terms', 'q = %d + p = %d + %s = %d'
+                      % (m * c2, m * c2, algebra.number_tex(p), q))]
+        answer = 'p = %d, q = %d' % (p, q)
+        expected_p = F(big_c, c2)
+        return Problem(statement=lines[0].tex, answer=answer, solution=Worked(lines, answer),
+                       meta={'got': (p, q), 'expected': (expected_p, m * c2 + expected_p)})
+    a, b = rng.randint(1, 9), rng.randint(1, 9)
+    rect = [Term(1, X2), Term(a + b, X), Term(a * b)]
+    left = [Term(a + b, X), Term(a * b)]
+    lines = [Line('A rectangle measures (x + %d) by (x + %d). A square of side x is cut out of '
+                  'it. Write the area left as simply as possible.' % (a, b)),
+             Line('Area of the rectangle: expand', '(x + %d)(x + %d) = %s' % (a, b, tex(rect))),
+             Line('Area of the square', 'x^{2}'),
+             Line('Take the square away', '%s - x^{2} = %s' % (tex(rect), tex(left)))]
+    answer = tex(left)
+    return Problem(statement=lines[0].say, answer=answer, solution=Worked(lines, answer),
+                   meta={'forms': ['(x+(%d))*(x+(%d))-x**2' % (a, b), plain(left)]},
+                   figure=area_figure(a, b))
 # --- Facts (editable) ---------------------------------------------------------
 
 GRID = (
@@ -240,4 +303,8 @@ LESSON = Lesson(
               r'For $ax^{2} + bx + c$: multiply $a \times c$, find two numbers that multiply to it '
               r'and add to $b$, split the middle term, then factorise in pairs.',
               factorise_ax2),
+        Stage('problems', 'Stretch',
+              r'Expanding and factorising as tools: prove a result, match coefficients in an '
+              r'identity ($\equiv$), or simplify an area.',
+              problems),
     ])

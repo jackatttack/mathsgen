@@ -164,6 +164,8 @@ def fact(item):
     figure = ''
     if item.figure:
         figure = '<div class="mk-fact-figure" style="margin-top:10px">%s</div>' % item.figure
+    if getattr(item, 'tex', None):
+        figure = eq(item.tex) + figure
     return ('<div class="mk-fact" style="border:1px solid rgba(128,128,128,0.35);'
             'border-radius:12px;padding:10px 14px;margin:10px 0">'
             '%s<div class="mk-fact-back" style="display:none">%s%s</div>'

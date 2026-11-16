@@ -4,8 +4,11 @@ Each stage draws equations from mathskit.generate by kind and solves them
 with mathskit.linear, so the worked steps, the Question button and Your
 move all match the stage on screen. Edit the ladder below.
 """
+from fractions import Fraction as F
+
 from .. import generate
-from ..lesson import Fact, Lesson, Problem, Stage
+from .. import linear as solver
+from ..lesson import Fact, Lesson, Line, Problem, Stage, Worked
 
 
 def equations(*kinds):
@@ -15,6 +18,43 @@ def equations(*kinds):
     return make_problem
 
 
+def problems(rng):
+    """Stretch: form an equation from words, solve it, then answer what was
+    asked. The solving lines come from mathskit.linear, as in every stage."""
+    plus = generate.plus
+    kind = rng.choice(('rectangle', 'ages', 'think'))
+    if kind == 'rectangle':
+        x, a = rng.randint(2, 15), rng.randint(1, 9)
+        b = rng.choice([value for value in range(-x + 1, 10) if value])
+        perimeter = 2 * (2 * x + a) + 2 * (x + b)
+        text = '2(2x%s) + 2(x%s) = %d' % (plus(a), plus(b), perimeter)
+        intro = [Line('A rectangle is (2x%s) cm long and (x%s) cm wide. Its perimeter is %d cm. '
+                      'How long is it?' % (plus(a), plus(b), perimeter))]
+        say, value = 'Perimeter = 2 \u00d7 length + 2 \u00d7 width', 2 * x + a
+        finish = Line('So the length is', r'2 \times %d + %d = %d \text{ cm}' % (x, a, value))
+    elif kind == 'ages':
+        k, n, x = rng.randint(2, 5), rng.randint(2, 10), rng.randint(3, 15)
+        total = k * x + n + x + n
+        text = '%dx + %d + x + %d = %d' % (k, n, n, total)
+        intro = [Line('Ali is %d times as old as Ben. In %d years their ages will add up to %d. '
+                      'How old is Ali now?' % (k, n, total))]
+        say, value = 'Let Ben be x, so Ali is %dx. In %d years each is %d older' % (k, n, n), k * x
+        finish = Line('So Ali is', r'%d \times %d = %d' % (k, x, value))
+    else:
+        a, x = rng.randint(3, 7), rng.randint(2, 12)
+        b = rng.randint(1, (a - 1) * x - 1)
+        c = (a - 1) * x - b
+        text = '%dx - %d = x + %d' % (a, b, c)
+        intro = [Line('I think of a number, multiply it by %d and take away %d. I get the same as '
+                      'adding %d to my number. What is my number?' % (a, b, c))]
+        say, value, finish = 'Call the number x', x, None
+    solution = solver.solve(text)
+    lines = intro + [Line(say, solution.steps[0].tex)] + solution.steps[1:]
+    if finish:
+        lines.append(finish)
+    answer = str(value)
+    return Problem(statement=intro[0].say, answer=answer, solution=Worked(lines, answer),
+                   meta={'got': F(solution.answer), 'expected': x})
 # --- Facts (editable) ---------------------------------------------------------
 
 BALANCE = (
@@ -89,9 +129,13 @@ LESSON = Lesson(
               'Clear the fraction: multiply both sides by the denominator. With '
               'a fraction on each side, cross multiply.',
               equations('fraction_one_side', 'fractions')),
-        Stage('stretch', 'Stretch',
+        Stage('stretch', 'Negatives and fractions',
               'Negative $x$ terms and answers that are fractions. Move the $x$ '
               'terms so they stay positive, and leave the answer as a fraction '
               'in its simplest form.',
               equations('stretch')),
+        Stage('problems', 'Stretch',
+              r'Turn the words into an equation, solve it, then answer the question that was '
+              r'actually asked.',
+              problems),
     ])

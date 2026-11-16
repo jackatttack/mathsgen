@@ -5,10 +5,11 @@ on the Lessons page).
     lessons.ALL               # [Lesson, ...]
     lessons.find('linear')
 """
-from . import brackets, like_terms, linear, percentages, quadratics
+from . import (angles, brackets, like_terms, linear, percentages, quadratics, ratio,
+               right_triangles, straight_lines)
 
-ALL = [percentages.LESSON, like_terms.LESSON, brackets.LESSON, linear.LESSON,
-       quadratics.LESSON]
+ALL = [percentages.LESSON, ratio.LESSON, like_terms.LESSON, brackets.LESSON, linear.LESSON,
+       quadratics.LESSON, straight_lines.LESSON, angles.LESSON, right_triangles.LESSON]
 
 
 def find(key):

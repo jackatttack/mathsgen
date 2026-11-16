@@ -202,6 +202,47 @@ def sketch(rng):
                 {'roots': (plain(poly), [r1, r2])}, figure)
 
 
+def problems(rng):
+    """Stretch: form a quadratic from a context, solve it, and reject the
+    root that cannot be the answer."""
+    if rng.random() < 0.5:
+        while True:
+            r, s = rng.randint(3, 12), -rng.randint(1, 15)
+            a = rng.randint(1, 9)
+            b = -(r + s) - a
+            area = a * b - r * s
+            if (area > 0 and b != 0 and r + a > 0 and r + b > 0
+                    and s + a < 0 and s + b < 0):
+                break
+        poly = [Term(1, X2), Term(-(r + s), X), Term(r * s)]
+        side1, side2 = tex([Term(1, X), Term(a)]), tex([Term(1, X), Term(b)])
+        expanded = [Term(1, X2), Term(a + b, X), Term(a * b)]
+        lines = [Line('A rectangle is (%s) cm long and (%s) cm wide. Its area is %d cm\u00b2. '
+                      'Find x.' % (side1, side2, area)),
+                 Line('Area = length \u00d7 width', '(%s)(%s) = %d' % (side1, side2, area)),
+                 Line('Expand', '%s = %d' % (tex(expanded), area)),
+                 Line('Make one side 0', tex(poly) + ' = 0'),
+                 Line('Factorise', '(%s)(%s) = 0' % (tex([Term(1, X), Term(-r)]), tex([Term(1, X), Term(-s)]))),
+                 Line('Solve each bracket', roots_line([r, s])),
+                 Line('x = %d would make both sides negative, so' % s, 'x = %d' % r)]
+        # Independent check: the quadratic formula's positive root of the
+        # expanded equation x^2 + (a + b)x + (ab - area) = 0.
+        discriminant = (a + b) ** 2 - 4 * (a * b - area)
+        expected = (-(a + b) + math.isqrt(discriminant)) // 2
+        return made(lines, 'x = %d' % r, {'roots': (plain(poly), [r, s]), 'got': r,
+                                           'expected': expected})
+    n = rng.randint(4, 20)
+    product = n * (n + 1)
+    poly = [Term(1, X2), Term(1, X), Term(-product)]
+    lines = [Line('Two consecutive positive whole numbers multiply to %d. Find them.' % product),
+             Line('Call them x and x + 1', 'x(x + 1) = %d' % product),
+             Line('Expand and make one side 0', tex(poly) + ' = 0'),
+             Line('Factorise: two numbers that multiply to -%d and add to 1' % product,
+                  '(x - %d)(x + %d) = 0' % (n, n + 1)),
+             Line('Solve each bracket', roots_line([n, -(n + 1)])),
+             Line('They must be positive, so x = %d' % n, r'%d \text{ and } %d' % (n, n + 1))]
+    return made(lines, '%d and %d' % (n, n + 1),
+                {'roots': (plain(poly), [n, -(n + 1)]), 'got': n, 'expected': math.isqrt(product)})
 # --- Facts (editable) ---------------------------------------------------------
 
 PARABOLA = (
@@ -271,4 +312,8 @@ LESSON = Lesson(
               r'Where it crosses the $y$ axis, where it crosses the $x$ axis, and the turning '
               r'point halfway between.',
               sketch),
+        Stage('problems', 'Stretch',
+              r'Turn a context into a quadratic, solve it, then decide which root makes sense: '
+              r'lengths and counts cannot be negative.',
+              problems),
     ])

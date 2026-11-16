@@ -27,6 +27,20 @@ def text(value, places=6):
     return shown.rstrip('0').rstrip('.')
 
 
+def frac_tex(value):
+    """TeX for an exact value: 3, -2, \\frac{1}{2}, -\\frac{3}{4}."""
+    value = Fraction(value)
+    if value.denominator == 1:
+        return str(value.numerator)
+    return r'%s\frac{%d}{%d}' % ('-' if value < 0 else '', abs(value.numerator),
+                                 value.denominator)
+
+
+def paren_tex(value):
+    """frac_tex, bracketed when negative: for substituting, 3 \\times (-2)."""
+    return '(%s)' % frac_tex(value) if Fraction(value) < 0 else frac_tex(value)
+
+
 def money(value):
     """Two decimal places: 1102.50."""
     return format(round_to(value, 2), 'f')

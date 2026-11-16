@@ -35,6 +35,9 @@ EMOJI = '\U0001f9ee'
 WINDOW_KEY = 'mathskit'
 FIRST_PAGE = 'Lesson'
 AREA_ORDER = ('Number', 'Algebra', 'Graphs', 'Geometry', 'Probability', 'Statistics')
+AREA_COLOURS = {'Number': '#f0883e', 'Algebra': '#58a6ff', 'Graphs': '#3fb950',
+                'Geometry': '#bc8cff', 'Probability': '#e3b341', 'Statistics': '#ff7b72'}
+OTHER_COLOUR = '#8b949e'
 SEARCH_BOX = ('<input class="mk-search" type="search" placeholder="Search lessons" '
               'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" '
               'style="width:100%;box-sizing:border-box;font-size:17px;padding:10px 12px;'
@@ -65,6 +68,30 @@ def figure_html(figure):
     return blocks.graph(drawn)
 
 
+def diagram_html(figure):
+    """An SVG diagram belongs to the question: shown before the working."""
+    return figure_html(figure) if isinstance(figure, str) else ''
+
+
+def plot_html(figure):
+    """A plotted graph is part of the answer: shown after the working."""
+    return figure_html(figure) if figure is not None and not isinstance(figure, str) else ''
+
+
+def tint(colour, alpha):
+    """'#58a6ff' at alpha, as rgba()."""
+    red, green, blue = (int(colour[index:index + 2], 16) for index in (1, 3, 5))
+    return 'rgba(%d,%d,%d,%.2f)' % (red, green, blue, alpha)
+
+
+def area_heading(area):
+    colour = AREA_COLOURS.get(area, OTHER_COLOUR)
+    return ('<div style="display:flex;align-items:center;gap:10px;margin:22px 0 4px">'
+            '<span style="width:12px;height:12px;border-radius:50%%;background:%s"></span>'
+            '<span style="font-size:23px;font-weight:700;color:%s">%s</span></div>'
+            % (colour, colour, blocks.escape(area)))
+
+
 # --- Lessons ------------------------------------------------------------------
 
 class LessonsPage:
@@ -77,8 +104,10 @@ class LessonsPage:
         self.on_open = on_open
 
     def picked(self, item):
+        """('open', lesson) from a title, ('open', lesson, stage) from a pill."""
         if isinstance(item, tuple) and item[0] == 'open':
-            self.on_open(lessons.find(item[1]))
+            stage = item[2] if len(item) > 2 else None
+            self.on_open(lessons.find(item[1]), stage)
 
     def show(self, teaching):
         page = cards.Page()
@@ -93,21 +122,32 @@ class LessonsPage:
             area_cards = [self.card(page, lesson, lesson is teaching)
                           for lesson in lessons.ALL if (lesson.area or 'Other') == area]
             parts.append('<div class="mk-area">%s%s</div>'
-                         % (prose.heading(area, 2), ''.join(area_cards)))
+                         % (area_heading(area), ''.join(area_cards)))
         page.prose(*parts)
         self.tile.show(page)
 
     def card(self, page, lesson, now):
-        """One lesson: title, its ladder, Open. data-search holds every word
-        the search box matches (title, area, keywords, stage titles)."""
+        """One lesson as a card in its area's colour: the title (tap to open
+        at the first stage) and its stages as pills (tap to open at that
+        stage). data-search holds every word the search box matches. The
+        lesson being taught has a full coloured border and a mark."""
+        colour = AREA_COLOURS.get(lesson.area, OTHER_COLOUR)
         words = [lesson.title, lesson.area] + list(lesson.keywords)
         words += [stage.title for stage in lesson.stages]
-        ladder = ' \u00b7 '.join(stage.title for stage in lesson.stages)
-        button = button_row(page.go, [('Teaching now' if now else 'Open \u25b6',
-                                       ('open', lesson.key), not now)])
-        return ('<div class="mk-lesson" data-search="%s" style="margin:4px 0 16px">%s%s%s</div>'
-                % (blocks.escape(' '.join(words).lower()), blocks.text('**%s**' % lesson.title),
-                   blocks.text(ladder), button))
+        pills = ''.join('<span %s style="display:inline-block;font-size:14px;padding:5px 11px;'
+                        'margin:5px 6px 0 0;border-radius:999px;background:%s;color:%s">%s</span>'
+                        % (page.go(('open', lesson.key, stage.key)), tint(colour, 0.16), colour,
+                           blocks.escape(stage.title))
+                        for stage in lesson.stages)
+        border = ('2px solid %s' % colour) if now else ('1px solid %s' % tint(colour, 0.35))
+        mark = ('<span style="font-size:12px;font-weight:600;color:%s;margin-left:8px">'
+                '\u25cf teaching</span>' % colour) if now else ''
+        return ('<div class="mk-lesson" data-search="%s" style="border:%s;border-left:6px solid %s;'
+                'border-radius:14px;background:%s;padding:12px 14px 13px;margin:10px 0">'
+                '<div %s style="font-size:19px;font-weight:650">%s%s</div>'
+                '<div>%s</div></div>'
+                % (blocks.escape(' '.join(words).lower()), border, colour, tint(colour, 0.06),
+                   page.go(('open', lesson.key)), blocks.escape(lesson.title), mark, pills))
 
 
 # --- Lesson -------------------------------------------------------------------
@@ -136,9 +176,9 @@ class LessonPage:
 
     # --- What the buttons do --------------------------------------------------
 
-    def set_lesson(self, lesson):
+    def set_lesson(self, lesson, stage_key=None):
         self.lesson = lesson
-        self.go_to(lesson.stages[0])
+        self.go_to(lesson.stage(stage_key) if stage_key else lesson.stages[0])
 
     def go_to(self, stage):
         self.stage = stage
@@ -196,8 +236,9 @@ class LessonPage:
                  prose.heading(self.stage.title, 2),
                  blocks.text(self.stage.idea),
                  blocks.text('**Worked example**'),
+                 diagram_html(self.example.figure),
                  blocks.steps(self.example.solution),
-                 figure_html(self.example.figure),
+                 plot_html(self.example.figure),
                  button_row(page.go, [('New example', 'example', False),
                                       ('Easier', 'easier', False),
                                       ('Harder', 'harder', False),
@@ -211,7 +252,7 @@ class LessonPage:
 
     def question_parts(self, page, fresh, scroll):
         buttons = [('Another question', 'question', False)]
-        if self.question.figure is not None:
+        if self.question.figure is not None and not isinstance(self.question.figure, str):
             buttons.append(('Hide graph' if self.question_figure else 'Show graph',
                             'figure', False))
         if self.question.equation:
@@ -219,8 +260,9 @@ class LessonPage:
                             'your_move', self.game is None))
         landing = '<div data-mk-land="1"></div>' if scroll and not fresh else ''
         parts = [landing + prose.heading('Question', 2),
+                 diagram_html(self.question.figure),
                  blocks.steps(self.question.solution),
-                 figure_html(self.question.figure) if self.question_figure else '',
+                 plot_html(self.question.figure) if self.question_figure else '',
                  button_row(page.go, buttons)]
         if self.game is not None:
             parts.append(blocks.explore(self.game, page.go, fresh=fresh, offer_new=False))
@@ -388,9 +430,10 @@ def main():
     facts_page = FactsPage(window, extras)
     bank = Questions(window, extras)
 
-    def open_lesson(lesson):
-        """Teach lesson: the Lesson and Facts pages follow it."""
-        lesson_page.set_lesson(lesson)
+    def open_lesson(lesson, stage_key=None):
+        """Teach lesson (at stage_key, or its first stage): the Lesson and
+        Facts pages follow it."""
+        lesson_page.set_lesson(lesson, stage_key)
         facts_page.show(lesson)
         lessons_page.show(lesson)
         window.set_page('Lesson')

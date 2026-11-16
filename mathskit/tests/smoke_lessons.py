@@ -74,6 +74,15 @@ def check_worked(problem):
                              % (meta['got'], meta['expected']))
     if 'forms' in meta:
         check_forms(meta['forms'])
+    if 'on_line' in meta:
+        m, c, points = meta['on_line']
+        for x, y in points:
+            if m * x + c != y:
+                raise AssertionError('(%s, %s) is not on y = %sx + %s' % (x, y, m, c))
+    if 'product' in meta:
+        kind, product = meta['product']
+        if kind == 'perpendicular' and product != -1:
+            raise AssertionError('perpendicular gradients multiply to %s' % product)
     if 'roots' in meta:
         form, roots = meta['roots']
         for root in roots:
