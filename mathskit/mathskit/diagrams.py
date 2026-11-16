@@ -274,3 +274,112 @@ def angle_mark(corner, text, a, b, c, unknown, radius=28):
     return ['<path d="M%.1f %.1f A%d %d 0 0 %d %.1f %.1f" stroke-width="1.6"/>'
             % (start[0], start[1], radius, radius, sweep, end[0], end[1]),
             label(tx, ty, text, 'middle', unknown, size=15)]
+
+
+# --- Probability ---------------------------------------------------------------
+
+def sample_space(rows, cols, values, marked=(), corner='+'):
+    """A sample space grid: rows down the side, cols along the top and
+    values[i][j] in each cell. Cells listed in marked, as (row, column)
+    indexes, are shaded in the accent colour."""
+    cell = min(36.0, 280.0 / (len(cols) + 1), 240.0 / (len(rows) + 1))
+    width, height = cell * (len(cols) + 1), cell * (len(rows) + 1)
+    x0, y0 = (320 - width) / 2, 6.0
+    size = int(height + 12)
+    out = ['<svg viewBox="0 0 320 %d" width="320" height="%d" xmlns="http://www.w3.org/2000/svg" '
+           'fill="none" stroke="currentColor" stroke-width="1.2" %s>' % (size, size, FONT)]
+    for i, j in marked:
+        out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" '
+                   'fill-opacity="0.35" stroke="none"/>'
+                   % (x0 + (j + 1) * cell, y0 + (i + 1) * cell, cell, cell, ACCENT))
+    for k in range(len(cols) + 2):
+        weight = ' stroke-width="2.2"' if k == 1 else ''
+        x = x0 + k * cell
+        out.append('<path d="M%.1f %.1f V%.1f"%s/>' % (x, y0, y0 + height, weight))
+    for k in range(len(rows) + 2):
+        weight = ' stroke-width="2.2"' if k == 1 else ''
+        y = y0 + k * cell
+        out.append('<path d="M%.1f %.1f H%.1f"%s/>' % (x0, y, x0 + width, weight))
+    middle = cell / 2 + 5
+    out.append(label(x0 + cell / 2, y0 + middle, corner, size=15))
+    for j, value in enumerate(cols):
+        out.append(label(x0 + (j + 1) * cell + cell / 2, y0 + middle, str(value), size=14))
+    for i, value in enumerate(rows):
+        out.append(label(x0 + cell / 2, y0 + (i + 1) * cell + middle, str(value), size=14))
+        for j in range(len(cols)):
+            out.append(label(x0 + (j + 1) * cell + cell / 2, y0 + (i + 1) * cell + middle,
+                             str(values[i][j]), size=13))
+    out.append('</svg>')
+    return ''.join(out)
+
+
+def venn(names, regions, unknown='?', highlight=()):
+    """Two overlapping sets in a box. names: (left, right). regions: texts
+    for (only left, both, only right, neither). A text equal to unknown, or
+    a region whose index is in highlight, is drawn in the accent colour."""
+    out = [_open(320, 200),
+           '<rect x="12" y="24" width="296" height="168" rx="6" stroke-width="1.6"/>',
+           '<circle cx="124" cy="108" r="66" fill="%s" fill-opacity="0.15" stroke="%s"/>'
+           % (PALETTE[0], PALETTE[0]),
+           '<circle cx="196" cy="108" r="66" fill="%s" fill-opacity="0.15" stroke="%s"/>'
+           % (PALETTE[2], PALETTE[2]),
+           label(110, 17, names[0], size=15),
+           label(210, 17, names[1], size=15),
+           label(22, 44, '\u03be', 'start', size=15)]
+    spots = ((92, 114), (160, 114), (228, 114), (298, 184))
+    for index, (text, (x, y)) in enumerate(zip(regions, spots)):
+        if text:
+            out.append(label(x, y, text, 'end' if index == 3 else 'middle',
+                             text == unknown or index in highlight, size=17))
+    out.append('</svg>')
+    return ''.join(out)
+
+
+def tree(first, second, unknown='?'):
+    """A two-stage probability tree, read left to right. first: the two
+    (name, probability) branches; second: for each of those, its own two
+    (name, probability) branches. A probability equal to unknown is drawn
+    in the accent colour."""
+    out = [_open(320, 222)]
+    root = (14.0, 112.0)
+    for i, (name, chance) in enumerate(first):
+        y = 56.0 if i == 0 else 168.0
+        out.append(_line(root, (92.0, y), ' stroke-width="1.6"'))
+        out.append(_chance(root, (92.0, y), chance, i == 0, unknown))
+        out.append(label(98, y + 5, name, 'start', size=15))
+        for k, (leaf, leaf_chance) in enumerate(second[i]):
+            start, end = (156.0, y), (226.0, y - 28 if k == 0 else y + 28)
+            out.append(_line(start, end, ' stroke-width="1.6"'))
+            out.append(_chance(start, end, leaf_chance, k == 0, unknown))
+            out.append(label(232, end[1] + 5, leaf, 'start', size=15))
+    out.append('</svg>')
+    return ''.join(out)
+
+
+def _chance(start, end, text, upper, unknown):
+    """A branch's probability beside its middle: above an upper branch,
+    below a lower one."""
+    mx, my = (start[0] + end[0]) / 2, (start[1] + end[1]) / 2
+    return label(mx - 12, my - 10 if upper else my + 20, text, 'middle', text == unknown, size=13)
+
+
+def venn3(names, regions, highlight=()):
+    """Three overlapping sets in a box. names: (A, B, C). regions: texts for
+    (only A, only B, only C, A and B only, A and C only, B and C only, all
+    three, none). A region whose index is in highlight is in the accent colour."""
+    out = [_open(320, 224),
+           '<rect x="12" y="24" width="296" height="194" rx="6" stroke-width="1.6"/>']
+    centres = ((130, 92), (190, 92), (160, 146))
+    for (cx, cy), colour in zip(centres, (PALETTE[0], PALETTE[2], PALETTE[3])):
+        out.append('<circle cx="%d" cy="%d" r="58" fill="%s" fill-opacity="0.13" stroke="%s"/>'
+                   % (cx, cy, colour, colour))
+    out += [label(100, 17, names[0], size=15), label(220, 17, names[1], size=15),
+            label(96, 206, names[2], 'end', size=15), label(22, 44, '\u03be', 'start', size=15)]
+    spots = ((104, 85), (216, 85), (160, 187), (160, 71), (124, 137), (196, 137), (160, 119),
+             (298, 212))
+    for index, (text, (x, y)) in enumerate(zip(regions, spots)):
+        if text:
+            out.append(label(x, y, text, 'end' if index == 7 else 'middle', index in highlight,
+                             size=15))
+    out.append('</svg>')
+    return ''.join(out)
