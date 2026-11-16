@@ -61,6 +61,18 @@ The available actions vary by skill. Your PDF viewer must allow external links; 
 
 Pythonista's [URL scheme documentation](https://omz-software.com/pythonista/docs/ios/urlscheme.html) explains the local and iCloud script roots and how `argv` values are passed.
 
+## Maths for Toolbox
+
+MathsGen also ships **Maths**, a teaching tool for
+[Toolbox for Pythonista](https://github.com/jackatttack/editorkit). Each lesson
+is a ladder of stages: the idea, a worked example you step through, questions
+with the answer hidden until you reveal it, and the topic's key facts. A Bank
+page draws questions from MathsGen itself.
+
+If Toolbox is installed when you run the MathsGen installer, a Maths card
+appears in Toolbox. Install Toolbox later? Run the MathsGen bootstrap again.
+Maths lives in `mathsgen/mathskit/`; you can also run `maths_tool.py` there.
+
 ## Repository layout
 
 - `launch_mathsgen.py` — everyday Pythonista entrypoint.

@@ -12,6 +12,7 @@ updates to the current GitHub release, with no questions asked:
 A new student needs only the bootstrap: the first run installs everything.
 """
 import io
+import json
 import os
 from pathlib import Path, PurePosixPath
 import shutil
@@ -32,6 +33,11 @@ KEEP_BACKUPS = 2
 # User data carried from the old install into the new one.
 USER_FOLDERS = ("exports", "feedback", "saved_setups")
 USER_FILES = ("worksheet_ui_settings.json", "launcher_settings.json")
+# Maths for Toolbox (the mathskit folder). With Toolbox's editorkit package
+# installed, a Maths card is written into Toolbox's tools; without it the
+# folder is simply unused.
+TOOLBOX_TOOLS = ("Toolbox", "tools")
+MATHS_CARD_FILE = "mathsgen_maths.json"
 
 # ------------------------------------------------------------ safety limits
 
@@ -147,10 +153,42 @@ def prune_backups(documents):
 
 
 def forget_loaded_code():
-    """Drop MathsGen modules already loaded in this Pythonista session."""
+    """Drop MathsGen and mathskit modules already loaded in this session."""
     for name in list(sys.modules):
-        if name in ("mathsgen", "launch_mathsgen") or name.startswith("mathsgen."):
+        if (name in ("mathsgen", "launch_mathsgen", "mathskit", "maths_tool")
+                or name.startswith("mathsgen.") or name.startswith("mathskit.")):
             del sys.modules[name]
+
+
+def editorkit_installed():
+    """True when the editorkit package (Toolbox for Pythonista) is importable."""
+    import importlib.util
+    try:
+        return importlib.util.find_spec("editorkit") is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def add_maths_card(documents, target):
+    """Write Toolbox's Maths card when editorkit is installed. True if written."""
+    tool = target / "mathskit"
+    if not editorkit_installed() or not (tool / "maths_tool.py").is_file():
+        return False
+    folder = documents.joinpath(*TOOLBOX_TOOLS)
+    folder.mkdir(parents=True, exist_ok=True)
+    card = {
+        "name": "Maths",
+        "emoji": "\U0001f9ee",
+        "what": "lessons, questions and key facts",
+        "folder": str(tool),
+        "module": "maths_tool",
+        "function": "main",
+        "about": ("Lessons to teach from: worked examples you step through, questions "
+                  "with hidden answers, Your move, key facts, and the MathsGen bank."),
+    }
+    (folder / MATHS_CARD_FILE).write_text(
+        json.dumps(card, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return True
 
 
 def main():
@@ -173,6 +211,8 @@ def main():
         if (target.exists() and new_version and new_version == old_version
                 and (target / "core/mathsgen/catalogue.py").is_file()):
             print("MathsGen is already up to date ({}).".format(new_version))
+            if add_maths_card(documents, target):
+                print("Maths is in Toolbox.")
             print("Open mathsgen/launch_mathsgen.py and tap Run.")
             return
         if target.exists():
@@ -194,6 +234,8 @@ def main():
 
     removed = prune_backups(documents)
     forget_loaded_code()
+    if add_maths_card(documents, target):
+        print("Added Maths to Toolbox (lessons, questions and key facts).")
     if backup is None:
         print("Installed MathsGen {} ({} files) at {}".format(
             new_version or "", count, target))
